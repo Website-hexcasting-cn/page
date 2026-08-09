@@ -1,0 +1,29 @@
+---
+import Header from './../components/header.astro';
+
+const { title } = Astro.props;
+---
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width" />
+		<title>{title}</title>
+	</head>
+	<body>
+        <Header />
+		<slot />
+	</body>
+</html>
+<style>
+    body {
+        background-color: #914b97;
+    }
+</style>
+
+<style is:global>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+</style>
