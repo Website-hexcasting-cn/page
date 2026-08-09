@@ -1,0 +1,26 @@
+content:
+  - name: posts
+    label: 博客文章
+    type: collection
+    path: src/content/posts
+    format: md
+    view:
+      fields: [title, date, author]
+    fields:
+      - name: title
+        label: 标题
+        type: string
+        required: true
+      - name: date
+        label: 日期
+        type: date
+        required: true
+      - name: author
+        label: 作者
+        type: string
+      - name: description
+        label: 描述
+        type: string
+      - name: body
+        label: 内容
+        type: rich-text

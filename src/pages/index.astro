@@ -1,0 +1,32 @@
+---
+import BaseLayout from './../layouts/baseLayout.astro';
+---
+<BaseLayout title="阿卡夏图书馆——咒法学中文网">
+    <main>
+        <cover>
+
+        </cover>
+        <content>
+            <functionList>
+                
+            </functionList>
+        </content>
+    </main>
+</BaseLayout>
+<style>
+    main {
+        height: 100%;
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+    }
+    cover {
+        background-color: red;
+    }
+    content {
+        display: grid;
+        grid-template-rows: 80px 1fr;
+    }
+    functionList {
+        background-color: aliceblue;
+    }
+   </style>

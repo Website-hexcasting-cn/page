@@ -1,0 +1,27 @@
+---
+import { type CollectionEntry, getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+    const posts = await getCollection('posts');
+    return posts.map((post: CollectionEntry<'posts'>) => ({
+        params: { id: post.id },
+        props: post,
+    }));
+}
+type Props = CollectionEntry<'posts'>;
+
+const post = Astro.props;
+const { Content } = await render(post);
+---
+
+<html>
+<head>
+    <title>{post.data.title}</title>
+</head>
+<body>
+    <h1>{post.data.title}</h1>
+    <p>作者: {post.data.author} | 日期: {post.data.date.toLocaleDateString('zh-CN')}</p>
+    {post.data.description && <p>{post.data.description}</p>}
+    <Content />
+</body>
+</html>
