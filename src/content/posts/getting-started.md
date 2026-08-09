@@ -1,9 +1,9 @@
 ---
-
-## title: "Getting Started with Astro"
+title: "Getting Started with Astro"
 date: 2026-08-08
 author: "Admin"
 description: "学习如何使用 Astro 构建现代网站"
+---
 
 # Getting Started with Astro
 
