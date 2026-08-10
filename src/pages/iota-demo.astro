@@ -1,0 +1,113 @@
+---
+import BaseLayout from '../layouts/baseLayout.astro';
+import IotaPattern from '../components/IotaPattern.astro';
+
+// 内置示例（全类型 + hexguide 便携语法）
+const demos = [
+    { name: '图案', value: 'iota:hexguide:get_caster.json' },
+    { name: '数字', value: 'iota:hexguide:double0.json' },
+    { name: '向量', value: 'iota:hexguide:vec0.json' },
+    { name: 'Null', value: 'iota:hexguide:null0.json' },
+    { name: '垃圾', value: 'iota:hexguide:garbage0.json' },
+    { name: '列表', value: 'iota:hexguide:list0.json' },
+    { name: '便携图案', value: 'iota:pattern{NORTH_EAST,qqaeaae}' },
+    { name: '便携列表', value: 'iota:[double:1, vec:{2,3,4}, null]' },
+];
+---
+
+<BaseLayout title="Iota 图案渲染测试——咒法学中文网">
+    <main style="max-width: 860px; margin: 0 auto; padding: 2rem 1rem; color: #e6d9f0;">
+        <h1 style="color:#fff;">iota: 图案渲染测试</h1>
+        <p style="color:#c8b7dc;">
+            在下方输入 <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">iota:&lt;a85&gt;</code>
+            或 <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">iota:&lt;ns&gt;:&lt;name&gt;.json</code>，
+            即可实时渲染为图案 / Iota 图标。
+        </p>
+
+        <div style="display:flex;gap:.5rem;margin:1rem 0;">
+            <input
+                id="iota-input"
+                type="text"
+                placeholder="iota:hexguide:get_caster.json 或 iota:&lt;a85&gt;"
+                style="flex:1;padding:.6rem .8rem;border-radius:8px;border:1px solid #6d4c8a;background:rgba(0,0,0,.25);color:#fff;font-family:monospace;"
+            />
+            <button
+                id="iota-go"
+                style="padding:.6rem 1.2rem;border-radius:8px;border:none;background:#914b97;color:#fff;cursor:pointer;"
+            >渲染</button>
+        </div>
+
+        <div id="iota-output" style="min-height:180px;padding:1rem;border:1px dashed #6d4c8a;border-radius:12px;background:rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;"></div>
+
+        <h2 style="color:#fff;margin-top:2rem;">内置示例</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:1.2rem;margin-top:1rem;">
+            {
+                demos.map((d) => (
+                    <div style="text-align:center;">
+                        <div style="background:rgba(0,0,0,.2);border:1px solid #6d4c8a;border-radius:12px;padding:1rem;display:inline-block;">
+                            <IotaPattern value={d.value} size={16} />
+                        </div>
+                        <div style="margin-top:.4rem;color:#c8b7dc;font-size:13px;">{d.name}</div>
+                    </div>
+                ))
+            }
+        </div>
+
+        <h2 style="color:#fff;margin-top:2rem;">文章内嵌示例（组件用法）</h2>
+        <p style="color:#c8b7dc;">
+            在文章里写 <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;">&lt;IotaPattern value="iota:hexguide:get_caster.json" /&gt;</code>
+            即可内嵌图案：
+        </p>
+        <div style="display:flex;gap:1rem;align-items:center;background:rgba(0,0,0,.2);border-radius:12px;padding:1rem;">
+            <IotaPattern value="iota:hexguide:get_caster.json" size={14} />
+            <IotaPattern value="iota:hexguide:custom_aq.json" size={14} />
+            <IotaPattern value="iota:hexguide:vec0.json" size={14} />
+        </div>
+    </main>
+</BaseLayout>
+
+<script>
+    const input = document.getElementById('iota-input');
+    const go = document.getElementById('iota-go');
+    const out = document.getElementById('iota-output');
+
+    // 简单复用 IotaPattern 的渲染逻辑：动态创建容器并触发
+    async function renderInput() {
+        const value = input.value.trim();
+        if (!value) { out.innerHTML = '<span style="color:#c8b7dc;">输入 iota:... 试试</span>'; return; }
+        // 动态插入 IotaPattern 对应的 DOM 并手动渲染
+        const holder = document.createElement('div');
+        holder.className = 'iota-pattern';
+        holder.dataset.iota = value;
+        holder.dataset.size = '16';
+        holder.innerHTML = '<span class="iota-loading">…</span>';
+        out.innerHTML = '';
+        out.appendChild(holder);
+
+        try {
+            const { parseIotaString, renderIotaHtml, extractIotaFromSnbt, fetchResourceSnbt } =
+                await import('../lib/iotaRender');
+            const loadEl = holder.querySelector('.iota-loading');
+            const renderParsed = (parsed) => {
+                if (parsed.kind === 'error') {
+                    loadEl.className = 'iota-error';
+                    loadEl.textContent = parsed.label;
+                } else {
+                    loadEl.outerHTML = renderIotaHtml(parsed, 16);
+                }
+            };
+            const parsed = parseIotaString(value);
+            if (parsed.kind === 'resource') {
+                const snbt = await fetchResourceSnbt(parsed.raw);
+                renderParsed(extractIotaFromSnbt(snbt));
+            } else {
+                renderParsed(parsed);
+            }
+        } catch (e) {
+            holder.innerHTML = `<span class="iota-error">${e.message}</span>`;
+        }
+    }
+
+    go.addEventListener('click', renderInput);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') renderInput(); });
+</script>

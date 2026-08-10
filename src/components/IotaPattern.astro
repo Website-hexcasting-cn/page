@@ -1,0 +1,9 @@
+---
+// IotaPattern —— 把 iota:... 渲染为图案/图标（客户端渲染）
+// 用法：<IotaPattern value="iota:xxxxx" size={14} />
+//   value 支持 iota:<a85>（Ascii85 压缩 NBT）或 iota:<ns>:<name>.json（资源文件，放 public/<ns>/iotas/）
+// 渲染由 baseLayout 的全局脚本统一执行（renderIotaSpan），组件只输出占位 span。
+const { value = '', size = 14 } = Astro.props;
+---
+
+<span class="iota-pattern" data-iota={value} data-size={size}></span>
