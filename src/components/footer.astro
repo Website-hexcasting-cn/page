@@ -1,0 +1,48 @@
+<footer class="site-footer">
+    <div class="container">
+        <p class="footer-copy">&copy; 2026 阿卡夏图书馆</p>
+        <p class="footer-sub">咒法学（Hex Casting）中文网</p>
+    </div>
+</footer>
+
+<style>
+    .site-footer {
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border-top: 1px solid rgba(145, 75, 151, 0.25);
+        padding: var(--space-lg) 0;
+        text-align: center;
+    }
+
+    .container {
+        max-width: var(--container-max);
+        margin: 0 auto;
+        padding: 0 var(--space-lg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .footer-copy {
+        font-size: 0.9rem;
+        color: var(--color-text-muted);
+        font-weight: 500;
+    }
+
+    .footer-sub {
+        font-size: 0.8rem;
+        color: var(--color-text-faint);
+        letter-spacing: 0.02em;
+    }
+
+    @media screen and (max-width: 768px) {
+        .site-footer {
+            padding: var(--space-md) 0;
+        }
+        .container {
+            padding: 0 var(--space-md);
+        }
+    }
+</style>

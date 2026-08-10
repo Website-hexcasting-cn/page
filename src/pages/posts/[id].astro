@@ -16,97 +16,270 @@ const { Content } = await render(post);
 
 <BaseLayout title={post.data.title}>
     <main>
-        <article>
-            <header>
-                <h1>{post.data.title}</h1>
-                <div class="meta">
-                    <span class="author">作者: {post.data.author}</span>
-                    <span class="date">发布时间: {post.data.date.toLocaleDateString('zh-CN')}</span>
+        <article class="post-full">
+            <header class="post-header">
+                <h1 class="post-title">{post.data.title}</h1>
+                <div class="post-meta">
+                    <span class="post-date">📅 {post.data.date.toLocaleDateString('zh-CN')}</span>
+                    {post.data.author && <span class="post-author">✍️ {post.data.author}</span>}
                 </div>
-                {post.data.description && <p class="description">{post.data.description}</p>}
+                {post.data.description && <p class="post-description">{post.data.description}</p>}
             </header>
-            <div class="content">
+            <div class="post-content">
                 <Content />
             </div>
         </article>
+        <nav class="post-nav" aria-label="文章导航">
+            <a href="/posts/" class="back-home">← 返回文章列表</a>
+        </nav>
     </main>
 </BaseLayout>
 
 <style>
     main {
-        max-width: 800px;
+        max-width: var(--container-narrow);
         margin: 0 auto;
-        padding: 40px 20px;
+        padding: var(--space-xl) var(--space-lg) var(--space-2xl);
+        width: 100%;
     }
 
-    article {
-        background: white;
-        border-radius: 8px;
-        padding: 40px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    .post-full {
+        background: #ffffff;
+        border-radius: var(--radius-lg);
+        padding: var(--space-xl) var(--space-xl);
+        box-shadow: var(--shadow-md);
     }
 
-    header {
-        margin-bottom: 30px;
-        padding-bottom: 20px;
-        border-bottom: 2px solid #914b97;
+    .post-header {
+        margin-bottom: var(--space-xl);
+        padding-bottom: var(--space-lg);
+        border-bottom: 2px solid var(--color-primary);
     }
 
-    h1 {
-        font-size: 2.5rem;
-        color: #333;
-        margin-bottom: 15px;
+    .post-title {
+        font-size: 1.9rem;
+        font-weight: 700;
+        line-height: 1.4;
+        color: var(--color-text);
+        margin-bottom: var(--space-md);
     }
 
-    .meta {
+    .post-meta {
         display: flex;
-        gap: 20px;
-        color: #666;
+        flex-wrap: wrap;
+        gap: var(--space-md);
         font-size: 0.9rem;
+        color: var(--color-text-faint);
     }
 
-    .description {
-        margin-top: 15px;
-        color: #888;
+    .post-description {
+        margin-top: var(--space-md);
+        color: var(--color-text-muted);
         font-style: italic;
+        font-size: 0.95rem;
+        line-height: 1.7;
     }
 
-    .content {
-        line-height: 1.8;
-        color: #333;
+    /* 文章正文排版 */
+    .post-content {
+        font-size: 1rem;
+        line-height: 1.85;
+        color: var(--color-text);
     }
 
-    .content h2 {
-        margin-top: 30px;
-        margin-bottom: 15px;
-        color: #914b97;
+    .post-content h1,
+    .post-content h2,
+    .post-content h3,
+    .post-content h4,
+    .post-content h5,
+    .post-content h6 {
+        margin-top: 1.6em;
+        margin-bottom: 0.6em;
+        font-weight: 600;
+        line-height: 1.35;
+        color: var(--color-text);
     }
 
-    .content p {
-        margin-bottom: 15px;
+    .post-content h1 {
+        font-size: 1.6rem;
     }
 
-    .content ul, .content ol {
-        margin-left: 30px;
-        margin-bottom: 15px;
+    .post-content h2 {
+        font-size: 1.35rem;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--color-border);
+        color: var(--color-primary);
     }
 
-    .content li {
-        margin-bottom: 8px;
+    .post-content h3 {
+        font-size: 1.15rem;
     }
 
-    .content code {
-        background: #f4f4f4;
+    .post-content h4 {
+        font-size: 1rem;
+    }
+
+    .post-content p {
+        margin-bottom: 1.1em;
+    }
+
+    .post-content a {
+        color: var(--color-primary);
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: border-color var(--transition-base);
+    }
+
+    .post-content a:hover {
+        border-bottom-color: var(--color-primary);
+    }
+
+    .post-content ul,
+    .post-content ol {
+        margin: 0.8em 0 1.1em 1.5em;
+    }
+
+    .post-content li {
+        margin-bottom: 0.35em;
+    }
+
+    .post-content blockquote {
+        margin: 1.2em 0;
+        padding: 12px 20px;
+        border-left: 4px solid var(--color-primary);
+        background: var(--color-bg-soft);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        color: var(--color-text-muted);
+    }
+
+    .post-content blockquote p {
+        margin-bottom: 0;
+    }
+
+    .post-content code {
+        font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 0.88em;
+        background: var(--color-bg-soft);
         padding: 2px 6px;
-        border-radius: 3px;
-        font-family: monospace;
+        border-radius: var(--space-xs);
+        color: #c7254e;
     }
 
-    .content pre {
-        background: #f4f4f4;
-        padding: 15px;
-        border-radius: 5px;
+    .post-content pre {
+        margin: 1.2em 0;
+        padding: 20px 24px;
+        background: #1e1e2e;
+        color: #cdd6f4;
+        border-radius: var(--radius-sm);
         overflow-x: auto;
-        margin-bottom: 15px;
+        font-size: 0.88rem;
+        line-height: 1.6;
+    }
+
+    .post-content pre code {
+        background: none;
+        color: inherit;
+        padding: 0;
+        font-size: inherit;
+    }
+
+    .post-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: var(--radius-sm);
+        margin: 1em 0;
+    }
+
+    .post-content hr {
+        margin: 2em 0;
+        border: none;
+        border-top: 1px solid var(--color-border);
+    }
+
+    .post-content table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.2em 0;
+        display: block;
+        overflow-x: auto;
+        max-width: 100%;
+    }
+
+    .post-content th,
+    .post-content td {
+        border: 1px solid var(--color-border);
+        padding: 10px 14px;
+        text-align: left;
+    }
+
+    .post-content th {
+        background: var(--color-bg-soft);
+        font-weight: 600;
+    }
+
+    /* 返回导航 */
+    .post-nav {
+        margin-top: var(--space-lg);
+        text-align: center;
+    }
+
+    .back-home {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: rgba(255, 255, 255, 0.9);
+        text-decoration: none;
+        font-size: 0.95rem;
+        padding: 8px 16px;
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: background var(--transition-base), color var(--transition-base), gap var(--transition-base);
+    }
+
+    .back-home:hover {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.18);
+        gap: 8px;
+    }
+
+    /* 平板 */
+    @media screen and (max-width: 1024px) {
+        main {
+            padding: var(--space-lg) var(--space-md) var(--space-xl);
+        }
+        .post-full {
+            padding: var(--space-lg);
+        }
+        .post-title {
+            font-size: 1.7rem;
+        }
+    }
+
+    /* 移动端 */
+    @media screen and (max-width: 600px) {
+        main {
+            padding: var(--space-md) var(--space-md) var(--space-lg);
+        }
+        .post-full {
+            padding: var(--space-lg) var(--space-md);
+            border-radius: var(--radius-md);
+        }
+        .post-title {
+            font-size: 1.45rem;
+        }
+        .post-meta {
+            gap: var(--space-sm);
+            font-size: 0.85rem;
+        }
+        .post-content {
+            font-size: 0.95rem;
+            line-height: 1.8;
+        }
+        .post-content pre {
+            padding: 14px 16px;
+            font-size: 0.82rem;
+            border-radius: var(--radius-sm);
+        }
     }
 </style>
