@@ -204,6 +204,8 @@ function splitTopLevel(s) {
 /** 解析 hexguide 便携 iota 语法（无 iota: 前缀的内容）：double:/vec:{}/pattern{}/null/iota:[...] */
 export function parsePortable(raw) {
   if (raw === 'null') return { kind: 'null' };
+  if (raw === 'true') return { kind: 'boolean', value: true };
+  if (raw === 'false') return { kind: 'boolean', value: false };
   if (raw.startsWith('double:')) {
     const v = parseFloat(raw.slice(7));
     return Number.isNaN(v) ? null : { kind: 'double', value: v };
@@ -285,8 +287,16 @@ export function extractIota(nbt) {
       }
       return { kind: 'unknown', label: type };
     }
-    case 'hexcasting:double':
-      return { kind: 'double', value: data['x'] };
+    case 'hexcasting:double': {
+      // data 是裸 DoubleTag（如 {"hexcasting:data":0.0d}），也可能是 {x: ...} 对象
+      const v = data && typeof data === 'object' ? data['x'] : data;
+      return { kind: 'double', value: Number(v) };
+    }
+    case 'hexcasting:boolean': {
+      // data 是裸 ByteTag（如 {"hexcasting:data":1b}），也可能是 {x: ...} 对象
+      const b = data && typeof data === 'object' ? data['x'] : data;
+      return { kind: 'boolean', value: b === true || b === 1 || b === '1b' || b === 'true' };
+    }
     case 'hexcasting:vec3':
       return { kind: 'vec3', x: data['x'], y: data['y'], z: data['z'] };
     case 'hexcasting:null':
@@ -429,6 +439,9 @@ export function renderIotaHtml(kind, size, inList = false) {
     }
     case 'double':
       return `<span class="iota-double">${fmtNum(kind.value)}</span>`;
+    case 'boolean':
+      // True/False 为专有名词不翻译；颜色仿照 HexMod BooleanIota.display（绿/红）
+      return `<span class="iota-boolean${kind.value ? ' iota-true' : ' iota-false'}">${kind.value ? 'True' : 'False'}</span>`;
     case 'vec3':
       return `<span class="iota-vec">(${fmtNum(kind.x)}, ${fmtNum(kind.y)}, ${fmtNum(kind.z)})</span>`;
     case 'null':
