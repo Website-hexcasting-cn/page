@@ -1,7 +1,15 @@
 ---
 import BaseLayout from './../layouts/baseLayout.astro';
+import quickLinks from './../config/fastLink';
 
 const placeholderSvg = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg"/%3E';
+//构建快速链接字符串
+const quickLinksStr = quickLinks.map(link => `
+    <link href="${link.link}">
+        <img src="${link.icon}" alt="${link.name}" />
+        <span>${link.name}</span>
+    </link>
+`).join('');
 ---
 <BaseLayout title="阿卡夏图书馆——咒法学中文网">
     <main>
@@ -9,9 +17,7 @@ const placeholderSvg = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/
             <img src={placeholderSvg} alt="阿卡夏图书馆——咒法学中文网" data-vertical="./../../public/assets/verticalCover.png" data-horizontal="./../../public/assets/horizontalCover.png" />
         </cover>
         <content>
-            <functionList>
-                
-            </functionList>
+            <quickLinks set:html={quickLinksStr} />
         </content>
     </main>
 </BaseLayout>
@@ -69,7 +75,7 @@ const placeholderSvg = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/
             grid-template-rows: 80px auto;
         }
     }
-    functionList {
+    quickLinks {
         background-color: aliceblue;
     }
 </style>
