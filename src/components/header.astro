@@ -1,11 +1,37 @@
-<header>
+<header id="header">
 
 </header>
 
 <style>
     header {
+        --header-height: 32px;
         width: 100%;
-        height: 32px;
-        background-color: #000000;
+        height: var(--header-height);
+        background-image: url('./../../public/assets/slate.png');
+        background-size: var(--header-height) var(--header-height);
+        background-repeat: repeat;
     }
 </style>
+<script lang="ts">
+    setHeaderHeight=()=>{
+        //读取屏幕宽度
+        //选择一个合适的大小作为header-height 避免纹理不完整显示
+        const screenWidth = window.innerWidth;
+        console.log(screenWidth);
+        //获取header元素的DOM对象
+        const header = document.getElementById('header');
+        //根据屏幕宽度设置header-height
+        //判断16 24 32 25之中哪一个能被屏幕宽度整除就选择哪个
+        if(screenWidth % 32 === 0){
+            header.style.setProperty('--header-height', '32px');
+        }else if(screenWidth % 24 === 0){
+            header.style.setProperty('--header-height', '24px');
+        }else if(screenWidth % 25 === 0){
+            header.style.setProperty('--header-height', '25px');
+        }
+    }
+    //在页面加载完成后调用main函数
+    window.addEventListener('load', function(){
+        setHeaderHeight();
+    });
+</script>
