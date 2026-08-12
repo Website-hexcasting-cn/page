@@ -2,7 +2,7 @@
 import BaseLayout from '../layouts/baseLayout.astro';
 import { getCollection } from 'astro:content';
 
-const posts = (await getCollection('posts')).sort((a, b) => b.data.date - a.data.date);
+const posts = (await getCollection('posts')).sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 const recentPosts = posts.slice(0, 4);
 ---
 <BaseLayout title="阿卡夏图书馆——咒法学中文网">

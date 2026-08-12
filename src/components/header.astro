@@ -10,8 +10,8 @@ const pathname = Astro.url.pathname;
             <span class="nav-toggle-bar"></span>
         </button>
         <nav class="site-nav" id="primary-nav">
-            <a href="/" class:list={pathname === '/' && 'active'}>首页</a>
-            <a href="/posts/" class:list={pathname.startsWith('/posts/') && 'active'}>文章</a>
+            <a href="/" class:list={{ active: pathname === '/' }}>首页</a>
+            <a href="/posts/" class:list={{ active: pathname.startsWith('/posts/') }}>文章</a>
         </nav>
     </div>
 </header>

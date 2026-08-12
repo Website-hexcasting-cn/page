@@ -69,9 +69,9 @@ const demos = [
 </BaseLayout>
 
 <script>
-    const input = document.getElementById('iota-input');
-    const go = document.getElementById('iota-go');
-    const out = document.getElementById('iota-output');
+    const input = document.getElementById('iota-input') as HTMLInputElement;
+    const go = document.getElementById('iota-go') as HTMLButtonElement;
+    const out = document.getElementById('iota-output') as HTMLDivElement;
 
     // 简单复用 IotaPattern 的渲染逻辑：动态创建容器并触发
     async function renderInput() {
@@ -89,11 +89,24 @@ const demos = [
         try {
             const { parseIotaString, renderIotaHtml, extractIotaFromSnbt, fetchResourceSnbt } =
                 await import('../lib/iotaRender');
-            const loadEl = holder.querySelector('.iota-loading');
-            const renderParsed = (parsed) => {
+            const loadEl = holder.querySelector('.iota-loading') as HTMLElement;
+            // iotaRender.js 无类型注解（返回 any），这里定义最小结构以消除隐式 any
+            type ParsedIota = {
+                kind: 'error' | 'resource' | 'pattern' | 'double' | 'boolean' | 'vec3' | 'null' | 'garbage' | 'list' | 'unknown';
+                label?: string;
+                raw?: string;
+                value?: number | boolean;
+                x?: number;
+                y?: number;
+                z?: number;
+                startDir?: number;
+                angles?: number[];
+                items?: ParsedIota[];
+            };
+            const renderParsed = (parsed: ParsedIota) => {
                 if (parsed.kind === 'error') {
                     loadEl.className = 'iota-error';
-                    loadEl.textContent = parsed.label;
+                    loadEl.textContent = parsed.label ?? '';
                 } else {
                     loadEl.outerHTML = renderIotaHtml(parsed, 16);
                 }
@@ -106,7 +119,8 @@ const demos = [
                 renderParsed(parsed);
             }
         } catch (e) {
-            holder.innerHTML = `<span class="iota-error">${e.message}</span>`;
+            const msg = e instanceof Error ? e.message : String(e);
+            holder.innerHTML = `<span class="iota-error">${msg}</span>`;
         }
     }
 

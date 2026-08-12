@@ -2,7 +2,7 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/baseLayout.astro';
 
-const posts = (await getCollection('posts')).sort((a, b) => b.data.date - a.data.date);
+const posts = (await getCollection('posts')).sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 ---
 <BaseLayout title="文章——阿卡夏图书馆">
     <main>
