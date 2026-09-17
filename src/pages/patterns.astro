@@ -118,6 +118,10 @@ import BaseLayout from '../layouts/baseLayout.astro';
     }
     .p-langs { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
     .p-langname { font-size: 0.75rem; color: var(--color-text-muted); background: #fff; border: 1px solid var(--color-border); border-radius: 4px; padding: 1px 6px; }
+    .p-desc {
+        font-size: 0.78rem; color: var(--color-text-muted); line-height: 1.55;
+        margin-top: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
 
     .detail {
         margin-top: var(--space-lg);
@@ -139,6 +143,14 @@ import BaseLayout from '../layouts/baseLayout.astro';
     }
     .copy-btn:hover { background: var(--color-primary); color: #fff; }
     .copy-btn.copied { background: #2e7d32; border-color: #2e7d32; color: #fff; }
+
+    .detail-desc { margin-top: var(--space-lg); border-top: 1px solid var(--color-border); padding-top: var(--space-md); }
+    .detail-desc-head { font-weight: 700; color: var(--color-primary); margin-bottom: var(--space-sm); font-size: 0.95rem; }
+    .detail-desc-row { display: flex; gap: var(--space-sm); margin-bottom: var(--space-md); }
+    .detail-desc-row .detail-name-lang { padding-top: 2px; }
+    .detail-desc-body { flex: 1; min-width: 0; }
+    .detail-desc-title { font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
+    .detail-desc-text { color: var(--color-text-muted); line-height: 1.8; font-size: 0.9rem; white-space: pre-line; }
 
     @media screen and (max-width: 600px) {
         .tool-main { padding: var(--space-md); }
@@ -259,6 +271,7 @@ import BaseLayout from '../layouts/baseLayout.astro';
                 total: all.length,
                 packages: deps.length,
                 langs: [...new Set(all.flatMap((p) => Object.keys(p.names)))].sort(),
+                withDesc: all.filter((p) => p.desc).length,
             };
             live = true;
             refreshProgress.hidden = true;
@@ -288,6 +301,7 @@ import BaseLayout from '../layouts/baseLayout.astro';
             .map((m) => `<option value="${m}" ${m === prevMod ? 'selected' : ''}>${m}</option>`)
             .join('');
         statusText.textContent = `${source}：${patterns.length.toLocaleString()} 个图案 · ${meta.packages} 个包 · ${meta.langs.length} 种语言` +
+            (meta.withDesc ? ` · ${meta.withDesc.toLocaleString()} 个有手册介绍` : '') +
             ` · 更新于 ${new Date(meta.updatedAt).toLocaleString('zh-CN')}` + (live ? '（未持久化，刷新页面恢复）' : '');
         render();
     }
@@ -307,11 +321,13 @@ import BaseLayout from '../layouts/baseLayout.astro';
         for (const p of shown) {
             const card = document.createElement('div');
             card.className = 'p-card';
+            const desc = bookDesc(p);
             card.innerHTML = `
                 <div class="p-svg">${patternSvg(p, 14)}</div>
                 <div class="p-info">
                     <div class="p-name">${escapeHtml(displayName(p))}</div>
                     <div class="p-id">hexcasting:${escapeHtml(p.id)}</div>
+                    ${desc && desc.text ? `<div class="p-desc">${escapeHtml(desc.text.length > 72 ? desc.text.slice(0, 72) + '…' : desc.text)}</div>` : ''}
                     <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span></div>
                     ${Object.entries(p.names).filter(([l]) => l !== lang).slice(0, 3).length
                         ? `<div class="p-langs">${Object.entries(p.names).filter(([l]) => l !== lang).slice(0, 3)
@@ -337,6 +353,17 @@ import BaseLayout from '../layouts/baseLayout.astro';
             ? Object.entries(p.names).map(([l, n]) =>
                 `<div class="detail-name-row"><span class="detail-name-lang">${escapeHtml(langLabel(l))}</span><span>${escapeHtml(n)}</span></div>`).join('')
             : '<div class="detail-name-row"><span class="detail-name-lang">—</span><span>（该图案暂无已收录名称）</span></div>';
+        // 手册介绍（多语言）
+        const descRows = p.desc && Object.keys(p.desc).length
+            ? Object.entries(p.desc).map(([l, d]) => `
+                <div class="detail-desc-row" data-lang="${escapeHtml(l)}">
+                    <div class="detail-name-lang">${escapeHtml(langLabel(l))}${l === lang ? ' ✓' : ''}</div>
+                    <div class="detail-desc-body">
+                        ${d.title ? `<div class="detail-desc-title">${escapeHtml(d.title)}</div>` : ''}
+                        ${d.text ? `<div class="detail-desc-text">${escapeHtml(d.text)}</div>` : ''}
+                    </div>
+                </div>`).join('')
+            : '';
         detailEl.innerHTML = `
             <div class="detail-head">
                 <div class="detail-svg">${patternSvg(p, 22)}</div>
@@ -347,6 +374,7 @@ import BaseLayout from '../layouts/baseLayout.astro';
                     ${nameRows}
                 </div>
             </div>
+            ${descRows ? `<div class="detail-desc"><div class="detail-desc-head">手册介绍</div>${descRows}</div>` : ''}
             <div class="detail-copy">
                 <button class="copy-btn" data-copy="hexcasting:${p.id}">复制注册名</button>
                 <button class="copy-btn" data-copy="${iotaPortable(p)}">复制 iota 便携语法</button>

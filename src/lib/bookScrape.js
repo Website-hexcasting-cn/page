@@ -13,8 +13,9 @@
  */
 export function extractPatternEntries(html, knownIds) {
     const out = new Map();
-    // 找到所有图案区锚点位置
-    const anchorRe = /<div id="(patterns\/[^"]+)" class="entry">/g;
+    // 匹配所有 patterns/ 锚点 div（class 可不含 entry：新版 hexdoc 图案 div 无 class，旧版为 class=""）
+    // 分类锚点（patterns/<分类>）与嵌套条目锚点由 knownIds / parsePatternId 过滤
+    const anchorRe = /<div[^>]*id="(patterns\/[^"]+)"[^>]*>/g;
     const anchors = [];
     let m;
     while ((m = anchorRe.exec(html)) !== null) {
@@ -32,13 +33,9 @@ export function extractPatternEntries(html, knownIds) {
         const text = extractText(slice);
         if (!title && !text) continue;
 
-        const canvas = slice.match(/data-string="([^"]*)"[^>]*data-start="([^"]*)"/);
-        out.set(pid, {
-            title,
-            text,
-            sig: canvas ? canvas[1] : null,
-            start: canvas ? canvas[2] : null,
-        });
+        const sig = slice.match(/data-string="([^"]*)"/)?.[1] ?? null;
+        const start = slice.match(/data-start="([^"]*)"/)?.[1] ?? null;
+        out.set(pid, { title, text, sig, start });
     }
     return out;
 }

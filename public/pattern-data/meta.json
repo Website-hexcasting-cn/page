@@ -1,8 +1,8 @@
 {
-  "source": "PyPI HexBug-data",
-  "updatedAt": "2026-09-17T05:46:33.407Z",
-  "total": 1234,
-  "packages": 51,
+  "source": "PyPI HexBug-data + hexdoc 网页书",
+  "updatedAt": "2026-09-17T06:08:49.660Z",
+  "total": 1293,
+  "packages": 55,
   "langs": [
     "de_de",
     "en_us",
@@ -13,5 +13,6 @@
     "pl_pl",
     "ru_ru",
     "zh_cn"
-  ]
+  ],
+  "withDesc": 7
 }
