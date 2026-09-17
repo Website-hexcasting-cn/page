@@ -7,11 +7,11 @@ description: "站内新增「图案检索」工具：注册名与译名双向查
 
 # 图案检索工具上线——咒法图案一查便知
 
-本站新增了一个小工具：[**图案检索**](/patterns/)，专门用来查咒法学（Hex Casting）及其附属模组的图案。写咒术脚本的时候，对着 HexParse 报错里的注册名，想不起它到底是个什么图案；或者看到社区攻略里一个译名，想反查它的注册名好写进脚本——这种时候，它就能派上用场了。
+本站新增了一个小工具：[**图案检索**](/patterns/)，专门用来查咒法学（Hex Casting）及其附属模组的图案。写咒术脚本的时候，对着 HexParse 报错里的注册名，想不起它到底是个什么图案；或者看到社区攻略里一个译名，想反查它的注册名好用HexParse编写——这种时候，它就能派上用场了。
 
 ## 能查什么
 
-工具目前收录了 **55 个 hexdoc 包、1293 个图案**，覆盖 Hex Casting 本体与几乎全部常见附属：Hexal、moreiotas、Hexical、Hexpose、Oneironaut、HexFlow、LapisWorks……以及本站作者自己出品的几本 hexdoc 手册（MieHex:Revolution、Abadoned Greatwork、MieHex）里的图案。
+工具目前收录了 **55 个 hexdoc 包、1293 个图案**，覆盖 Hex Casting 本体与几乎全部常见附属：Hexal、moreiotas、Hexical、Hexpose、Oneironaut、HexFlow、**LapisWorks**……以及MieHex:Revolution、Abadoned Greatwork、MieHex里的图案。
 
 ## 怎么用
 
@@ -24,7 +24,7 @@ description: "站内新增「图案检索」工具：注册名与译名双向查
 
 **按模组筛选**：下拉菜单按模组过滤，只看某个模组自己的图案。
 
-**查看详情**：点开任意图案，能看到大图渲染、全部语言的名称、**手册原文介绍**（thehexbook 里这一页写了什么，直接照搬）、以及两个方便的复制按钮——「复制注册名」用于 HexParse 等脚本，还有「复制 iota 便携语法」（`iota:pattern{...}`），在咒术书里引用图案签名时可以直接粘贴。
+**查看详情**：点开任意图案，能看到大图渲染、全部语言的名称、**手册原文介绍**（thehexbook 里这一页写了什么，直接照搬）、以及两个方便的复制按钮——「复制注册名」用于 HexParse ，还有适配hexguide的「复制 iota 便携语法」（`iota:pattern{...}`），在咒术书里引用图案签名时可以直接粘贴。
 
 ## 数据从哪来
 
