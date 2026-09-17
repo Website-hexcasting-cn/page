@@ -179,7 +179,10 @@ import BaseLayout from '../layouts/baseLayout.astro';
     const langLabel = (l: string) => LANG_LABELS[l] ?? l;
 
     // ── 状态 ─────────────────────────────────────────────
-    type Pattern = { id: string; modid: string; pkg: string; startDir: number; angles: number[]; names: Record<string, string>; desc?: Record<string, { title: string; text: string }> };
+    type Pattern = { id: string; ns: string | null; modid: string; pkg: string; startDir: number; angles: number[]; names: Record<string, string>; desc?: Record<string, { title: string; text: string }> };
+
+    /** 注册名（带各自 mod 的命名空间） */
+    const regName = (p: Pattern) => (p.ns ? `${p.ns}:${p.id}` : p.id);
     let patterns: Pattern[] = [];
     let meta = { updatedAt: '', total: 0, packages: 0, langs: [] as string[] };
     let live = false; // true = 数据来自 PyPI 实时刷新
@@ -219,7 +222,7 @@ import BaseLayout from '../layouts/baseLayout.astro';
     const matches = (p: Pattern, q: string) => {
         if (!q) return true;
         if (p.id.toLowerCase().includes(q)) return true;
-        if (`hexcasting:${p.id}`.includes(q)) return true;
+        if (regName(p).includes(q)) return true;
         for (const v of Object.values(p.names)) if (v.toLowerCase().includes(q)) return true;
         return false;
     };
@@ -326,7 +329,7 @@ import BaseLayout from '../layouts/baseLayout.astro';
                 <div class="p-svg">${patternSvg(p, 14)}</div>
                 <div class="p-info">
                     <div class="p-name">${escapeHtml(displayName(p))}</div>
-                    <div class="p-id">hexcasting:${escapeHtml(p.id)}</div>
+                    <div class="p-id">${escapeHtml(regName(p))}</div>
                     ${desc && desc.text ? `<div class="p-desc">${escapeHtml(desc.text.length > 72 ? desc.text.slice(0, 72) + '…' : desc.text)}</div>` : ''}
                     <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span></div>
                     ${Object.entries(p.names).filter(([l]) => l !== lang).slice(0, 3).length
@@ -369,14 +372,14 @@ import BaseLayout from '../layouts/baseLayout.astro';
                 <div class="detail-svg">${patternSvg(p, 22)}</div>
                 <div class="detail-names">
                     <div class="p-name" style="font-size:1.1rem;">${escapeHtml(displayName(p))}</div>
-                    <div class="p-id" style="font-size:0.9rem;">hexcasting:${escapeHtml(p.id)}</div>
+                    <div class="p-id" style="font-size:0.9rem;">${escapeHtml(regName(p))}</div>
                     <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span><span class="p-tag">${escapeHtml(p.pkg)}</span></div>
                     ${nameRows}
                 </div>
             </div>
             ${descRows ? `<div class="detail-desc"><div class="detail-desc-head">手册介绍</div>${descRows}</div>` : ''}
             <div class="detail-copy">
-                <button class="copy-btn" data-copy="hexcasting:${p.id}">复制注册名</button>
+                <button class="copy-btn" data-copy="${regName(p)}">复制注册名</button>
                 <button class="copy-btn" data-copy="${iotaPortable(p)}">复制 iota 便携语法</button>
             </div>`;
         detailEl.querySelectorAll<HTMLButtonElement>('.copy-btn').forEach((btn) => {

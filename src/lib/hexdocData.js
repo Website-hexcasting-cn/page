@@ -114,10 +114,13 @@ export function extractPatternsFromWheel(bytes, pkg) {
     return {
         patterns: patterns
             .map((p) => {
-                const rawId = String(p.id ?? ''); // 原始 id（可能带 "hexcasting:" 前缀，lang 键用它）
+                const rawId = String(p.id ?? ''); // 原始 id（带命名空间前缀，如 "hexal:foo"，lang 键用它）
+                const nsMatch = rawId.match(/^([a-z0-9_]+):/);
+                const ns = nsMatch ? nsMatch[1] : null; // 注册名命名空间（各 mod 自己的，不一定是 hexcasting）
                 const id = rawId.replace(/^[a-z0-9_]+:/i, '');
                 return {
                     id,
+                    ns,
                     modid: modpostfix,
                     pkg,
                     startDir: toStartDir(p),
