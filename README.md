@@ -118,9 +118,10 @@ public/
 
 ## 图案检索工具（`/patterns/`）
 
-从 [PyPI HexBug-data](https://pypi.org/project/HexBug-data/) 索引咒法图案，支持**注册名 ↔ 译名双向查找**、多语言名称展示、图案 SVG 渲染与格式复制。
+从 [PyPI HexBug-data](https://pypi.org/project/HexBug-data/) 索引咒法图案，支持**注册名 ↔ 译名双向查找**、多语言名称展示、**手册介绍**与图案 SVG 渲染、格式复制。
 
-- **数据管道**：`pnpm fetch:patterns` 拉取 HexBug-data 的 `hexdoc-*` 依赖 wheel，提取图案（`start_dir`/`angles`）与语言文件（键 `hexcasting.action.<id>`），生成 `public/pattern-data/` 静态 JSON。
+- **数据管道**：`pnpm fetch:patterns` 拉取 HexBug-data 的 `hexdoc-*` 依赖 wheel（另显式追加用户自己的 `hexdoc-miehex-revolution` / `hexdoc-abadoned-greatwork` / `hexdoc-almightly-staff` / `hexdoc-miehex` 四包），提取图案（`start_dir`/`angles`）与语言文件（键 `hexcasting.action.<id>`），生成 `public/pattern-data/` 静态 JSON。每个图案带**自己的注册名命名空间**（如 `hexal:xxx`，取自 hexdoc 原始 id 前缀，非一律 `hexcasting`）。
+- **手册介绍**：构建时抓取各书 hexdoc 网页书 `index.html`（原版 `hexcasting.hexxy.media`、用户四本 `hexbook.xm1221.cn`，hash 从 sitemap 动态解析），按图案签名锚点提取标题与介绍文本（zh_cn/en_us），存为 `desc` 字段；页面按「当前语言 → zh_cn → en_us」显示。
 - **构建集成**：`pnpm build` 前会自动执行（`--if-missing`，已有数据则跳过）；首次请先跑 `pnpm fetch:patterns`。
-- **实时刷新**：页面右上角「从 PyPI 刷新」按钮可在浏览器内直接拉取最新数据（PyPI 与 wheel CDN 均允许跨域），结果仅保存在内存。
-- **实现**：`scripts/fetch-hexdoc-patterns.mjs`（构建脚本）、`src/lib/hexdocData.js`（前后端共用的提取逻辑）、`src/lib/zipReader.js`（零依赖 ZIP 解压）、`src/lib/jsonLoose.js`（注释/尾逗号容错 JSON）。图案渲染复用 `iotaRender.js`。
+- **实时刷新**：页面右上角「从 PyPI 刷新」按钮可在浏览器内直接拉取最新数据（PyPI 与 wheel CDN 均允许跨域），结果仅保存在内存（不含手册介绍）。
+- **实现**：`scripts/fetch-hexdoc-patterns.mjs`（构建脚本）、`src/lib/hexdocData.js`（前后端共用的提取逻辑）、`src/lib/bookScrape.js`（hexdoc 网页书条目解析）、`src/lib/zipReader.js`（零依赖 ZIP 解压）、`src/lib/jsonLoose.js`（注释/尾逗号容错 JSON）。图案渲染复用 `iotaRender.js`。

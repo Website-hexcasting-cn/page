@@ -133,8 +133,9 @@ import BaseLayout from '../layouts/baseLayout.astro';
     .detail-head { display: flex; gap: var(--space-lg); align-items: flex-start; flex-wrap: wrap; }
     .detail-svg { background: #fff; border-radius: var(--radius-sm); padding: var(--space-md); display: inline-flex; }
     .detail-names { flex: 1; min-width: 220px; }
-    .detail-name-row { display: flex; gap: var(--space-sm); align-items: baseline; font-size: 0.9rem; padding: 3px 0; }
-    .detail-name-lang { width: 90px; flex-shrink: 0; color: var(--color-text-faint); font-size: 0.78rem; }
+    .detail-other-names { margin-top: 8px; font-size: 0.8rem; color: var(--color-text-faint); line-height: 1.8; }
+    .detail-other-name { cursor: help; }
+    .detail-name-sep { margin: 0 2px; }
     .detail-copy { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-md); }
     .copy-btn {
         padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--color-primary);
@@ -146,9 +147,6 @@ import BaseLayout from '../layouts/baseLayout.astro';
 
     .detail-desc { margin-top: var(--space-lg); border-top: 1px solid var(--color-border); padding-top: var(--space-md); }
     .detail-desc-head { font-weight: 700; color: var(--color-primary); margin-bottom: var(--space-sm); font-size: 0.95rem; }
-    .detail-desc-row { display: flex; gap: var(--space-sm); margin-bottom: var(--space-md); }
-    .detail-desc-row .detail-name-lang { padding-top: 2px; }
-    .detail-desc-body { flex: 1; min-width: 0; }
     .detail-desc-title { font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
     .detail-desc-text { color: var(--color-text-muted); line-height: 1.8; font-size: 0.9rem; white-space: pre-line; }
 
@@ -352,32 +350,30 @@ import BaseLayout from '../layouts/baseLayout.astro';
 
     function showDetail(p: Pattern, card: HTMLElement) {
         detailEl.hidden = false;
-        const nameRows = Object.entries(p.names).length
-            ? Object.entries(p.names).map(([l, n]) =>
-                `<div class="detail-name-row"><span class="detail-name-lang">${escapeHtml(langLabel(l))}</span><span>${escapeHtml(n)}</span></div>`).join('')
-            : '<div class="detail-name-row"><span class="detail-name-lang">—</span><span>（该图案暂无已收录名称）</span></div>';
-        // 手册介绍（多语言）
-        const descRows = p.desc && Object.keys(p.desc).length
-            ? Object.entries(p.desc).map(([l, d]) => `
-                <div class="detail-desc-row" data-lang="${escapeHtml(l)}">
-                    <div class="detail-name-lang">${escapeHtml(langLabel(l))}${l === lang ? ' ✓' : ''}</div>
-                    <div class="detail-desc-body">
-                        ${d.title ? `<div class="detail-desc-title">${escapeHtml(d.title)}</div>` : ''}
-                        ${d.text ? `<div class="detail-desc-text">${escapeHtml(d.text)}</div>` : ''}
-                    </div>
-                </div>`).join('')
-            : '';
+        // 名称：当前语言名称 + 其他语言名称（无语言标签前缀，hover 提示语言）
+        const curName = displayName(p);
+        const otherNames = Object.entries(p.names)
+            .filter(([l, n]) => n !== curName)
+            .map(([l, n]) => `<span class="detail-other-name" title="${escapeHtml(langLabel(l))}">${escapeHtml(n)}</span>`)
+            .join('<span class="detail-name-sep"> · </span>');
+        // 手册介绍：只显示当前语言（bookDesc 已按 当前语言 → zh_cn → en_us 取一个）
+        const desc = bookDesc(p);
+        const descBlock = desc ? `
+            <div class="detail-desc"><div class="detail-desc-head">手册介绍</div>
+                ${desc.title ? `<div class="detail-desc-title">${escapeHtml(desc.title)}</div>` : ''}
+                ${desc.text ? `<div class="detail-desc-text">${escapeHtml(desc.text)}</div>` : ''}
+            </div>` : '';
         detailEl.innerHTML = `
             <div class="detail-head">
                 <div class="detail-svg">${patternSvg(p, 22)}</div>
                 <div class="detail-names">
-                    <div class="p-name" style="font-size:1.1rem;">${escapeHtml(displayName(p))}</div>
+                    <div class="p-name" style="font-size:1.1rem;">${escapeHtml(curName)}</div>
                     <div class="p-id" style="font-size:0.9rem;">${escapeHtml(regName(p))}</div>
-                    <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span><span class="p-tag">${escapeHtml(p.pkg)}</span></div>
-                    ${nameRows}
+                    <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span></div>
+                    ${otherNames ? `<div class="detail-other-names">${otherNames}</div>` : ''}
                 </div>
             </div>
-            ${descRows ? `<div class="detail-desc"><div class="detail-desc-head">手册介绍</div>${descRows}</div>` : ''}
+            ${descBlock}
             <div class="detail-copy">
                 <button class="copy-btn" data-copy="${regName(p)}">复制注册名</button>
                 <button class="copy-btn" data-copy="${iotaPortable(p)}">复制 iota 便携语法</button>
