@@ -1,0 +1,379 @@
+---
+import BaseLayout from '../layouts/baseLayout.astro';
+---
+<BaseLayout title="咒法图案检索——阿卡夏图书馆">
+    <main class="tool-main">
+        <div class="tool-card">
+            <header class="tool-header">
+                <h1 class="tool-title">咒法图案检索</h1>
+                <p class="tool-desc">
+                    从 <a href="https://pypi.org/project/HexBug-data/" target="_blank" rel="noopener">PyPI HexBug-data</a>
+                    索引的图案注册名与多语言译名。支持 <strong>注册名 → 译名</strong> 与
+                    <strong>译名 → 注册名</strong> 双向查找，并可渲染图案、复制格式。
+                </p>
+            </header>
+
+            <div class="tool-bar">
+                <input id="search" type="search" class="search-input" autocomplete="off" spellcheck="false"
+                    placeholder="输入注册名（如 get_caster / hexcasting:get_caster）或译名（如 制造者之墨）…" />
+                <select id="lang" class="lang-select" title="显示语言"></select>
+                <select id="mod-filter" class="lang-select" title="按模组过滤"><option value="">全部模组</option></select>
+                <button id="refresh" class="refresh-btn" type="button" title="从 PyPI 实时拉取最新数据">从 PyPI 刷新</button>
+            </div>
+
+            <div id="status" class="status-bar">
+                <span id="status-text">加载数据…</span>
+                <span id="refresh-progress" class="refresh-progress" hidden></span>
+            </div>
+
+            <div id="results" class="results" aria-live="polite"></div>
+            <div id="detail" class="detail" hidden></div>
+        </div>
+    </main>
+</BaseLayout>
+
+<style>
+    .tool-main {
+        max-width: var(--container-narrow, 900px);
+        margin: 0 auto;
+        padding: var(--space-xl) var(--space-lg) var(--space-2xl);
+        width: 100%;
+    }
+    .tool-card {
+        background: #ffffff;
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        padding: var(--space-xl);
+    }
+    .tool-header { margin-bottom: var(--space-lg); }
+    .tool-title { font-size: 1.7rem; color: var(--color-primary); margin-bottom: var(--space-sm); }
+    .tool-desc { color: var(--color-text-muted); line-height: 1.7; font-size: 0.95rem; }
+    .tool-desc a { color: var(--color-primary); }
+
+    .tool-bar { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-md); }
+    .search-input {
+        flex: 1 1 320px;
+        padding: 11px 14px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        font-size: 0.95rem;
+        outline: none;
+        transition: border-color var(--transition-base), box-shadow var(--transition-base);
+    }
+    .search-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(145, 75, 151, 0.15); }
+    .lang-select {
+        padding: 10px 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        background: var(--color-bg-soft);
+        font-size: 0.9rem;
+        color: var(--color-text);
+        cursor: pointer;
+    }
+    .refresh-btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: var(--radius-sm);
+        background: var(--color-primary);
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background var(--transition-base), transform var(--transition-base);
+    }
+    .refresh-btn:hover { background: var(--color-primary-dark); }
+    .refresh-btn:disabled { opacity: 0.6; cursor: wait; }
+
+    .status-bar {
+        display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-sm);
+        font-size: 0.85rem; color: var(--color-text-faint);
+        padding: 8px 2px 14px;
+        border-bottom: 1px solid var(--color-border);
+        margin-bottom: var(--space-lg);
+    }
+    .refresh-progress { color: var(--color-primary); font-weight: 600; }
+
+    .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-md); }
+    .result-empty { grid-column: 1 / -1; text-align: center; color: var(--color-text-muted); padding: var(--space-xl) 0; }
+
+    .p-card {
+        display: flex; align-items: center; gap: var(--space-md);
+        background: var(--color-bg-soft);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-md);
+        cursor: pointer;
+        transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
+    }
+    .p-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--color-primary-light); }
+    .p-svg { flex-shrink: 0; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: var(--radius-sm); }
+    .p-svg svg { max-width: 100%; height: auto; }
+    .p-info { flex: 1; min-width: 0; }
+    .p-name { font-weight: 600; font-size: 0.95rem; color: var(--color-text); line-height: 1.4; }
+    .p-id { font-family: monospace; font-size: 0.78rem; color: var(--color-primary); word-break: break-all; }
+    .p-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+    .p-tag {
+        font-size: 0.7rem; padding: 1px 7px; border-radius: 999px;
+        background: rgba(145, 75, 151, 0.12); color: var(--color-primary-dark);
+    }
+    .p-langs { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+    .p-langname { font-size: 0.75rem; color: var(--color-text-muted); background: #fff; border: 1px solid var(--color-border); border-radius: 4px; padding: 1px 6px; }
+
+    .detail {
+        margin-top: var(--space-lg);
+        background: var(--color-bg-soft);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-lg);
+    }
+    .detail-head { display: flex; gap: var(--space-lg); align-items: flex-start; flex-wrap: wrap; }
+    .detail-svg { background: #fff; border-radius: var(--radius-sm); padding: var(--space-md); display: inline-flex; }
+    .detail-names { flex: 1; min-width: 220px; }
+    .detail-name-row { display: flex; gap: var(--space-sm); align-items: baseline; font-size: 0.9rem; padding: 3px 0; }
+    .detail-name-lang { width: 90px; flex-shrink: 0; color: var(--color-text-faint); font-size: 0.78rem; }
+    .detail-copy { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-md); }
+    .copy-btn {
+        padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--color-primary);
+        background: #fff; color: var(--color-primary); font-size: 0.85rem; cursor: pointer; font-weight: 600;
+        transition: background var(--transition-base), color var(--transition-base);
+    }
+    .copy-btn:hover { background: var(--color-primary); color: #fff; }
+    .copy-btn.copied { background: #2e7d32; border-color: #2e7d32; color: #fff; }
+
+    @media screen and (max-width: 600px) {
+        .tool-main { padding: var(--space-md); }
+        .tool-card { padding: var(--space-lg) var(--space-md); }
+        .tool-bar > * { flex: 1 1 100%; }
+    }
+</style>
+
+<script>
+    import { patternToSvg } from '../lib/iotaRender';
+    import {
+        getHexBugDependencies,
+        getLatestWheel,
+        extractPatternsFromWheel,
+    } from '../lib/hexdocData';
+
+    // ── 常量 ─────────────────────────────────────────────
+    const HEX_DIR_NAMES = ['NORTH_EAST', 'EAST', 'SOUTH_EAST', 'SOUTH_WEST', 'WEST', 'NORTH_WEST'];
+    const ANGLE_CHARS = { 0: 'w', 1: 'e', 2: 'd', 3: 's', 4: 'a', 5: 'q' };
+    const LANG_LABELS: Record<string, string> = {
+        en_us: 'English', zh_cn: '简体中文', zh_tw: '繁體中文', ja_jp: '日本語', ko_kr: '한국어',
+        ru_ru: 'Русский', de_de: 'Deutsch', fr_fr: 'Français', es_es: 'Español', es_mx: 'Español (MX)',
+        pt_br: 'Português', it_it: 'Italiano', pl_pl: 'Polski', sv_se: 'Svenska', no_no: 'Norsk',
+        fi_fi: 'Suomi', uk_ua: 'Українська', en_pt: 'Pirate English',
+    };
+    const langLabel = (l: string) => LANG_LABELS[l] ?? l;
+
+    // ── 状态 ─────────────────────────────────────────────
+    type Pattern = { id: string; modid: string; pkg: string; startDir: number; angles: number[]; names: Record<string, string>; desc?: Record<string, { title: string; text: string }> };
+    let patterns: Pattern[] = [];
+    let meta = { updatedAt: '', total: 0, packages: 0, langs: [] as string[] };
+    let live = false; // true = 数据来自 PyPI 实时刷新
+    let lang = 'zh_cn';
+
+    const $ = (id: string) => document.getElementById(id)!;
+    const searchEl = $('search') as HTMLInputElement;
+    const langEl = $('lang') as HTMLSelectElement;
+    const modEl = $('mod-filter') as HTMLSelectElement;
+    const refreshBtn = $('refresh') as HTMLButtonElement;
+    const statusText = $('status-text');
+    const refreshProgress = $('refresh-progress');
+    const resultsEl = $('results');
+    const detailEl = $('detail');
+
+    // ── 工具 ─────────────────────────────────────────────
+    const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+    const patternSvg = (p: Pattern, size: number) =>
+        patternToSvg(p.startDir, p.angles, { size, grid: true }).svg;
+
+    const displayName = (p: Pattern) =>
+        p.names[lang] ?? p.names['zh_cn'] ?? p.names['en_us'] ?? Object.values(p.names)[0] ?? p.id;
+
+    /** 手册介绍：当前语言 → zh_cn → en_us */
+    const bookDesc = (p: Pattern) => {
+        if (!p.desc) return null;
+        return p.desc[lang] ?? p.desc['zh_cn'] ?? p.desc['en_us'] ?? null;
+    };
+
+    const iotaPortable = (p: Pattern) => {
+        const sig = p.angles.map((a) => ANGLE_CHARS[((a % 6) + 6) % 6] ?? '').join('');
+        return `iota:pattern{${HEX_DIR_NAMES[((p.startDir % 6) + 6) % 6] ?? 'NORTH_EAST'},${sig}}`;
+    };
+
+    const matches = (p: Pattern, q: string) => {
+        if (!q) return true;
+        if (p.id.toLowerCase().includes(q)) return true;
+        if (`hexcasting:${p.id}`.includes(q)) return true;
+        for (const v of Object.values(p.names)) if (v.toLowerCase().includes(q)) return true;
+        return false;
+    };
+
+    // ── 加载静态数据 ─────────────────────────────────────
+    async function loadStatic() {
+        try {
+            const [pats, m] = await Promise.all([
+                fetch('/pattern-data/patterns.json').then((r) => r.json()),
+                fetch('/pattern-data/meta.json').then((r) => r.json()),
+            ]);
+            patterns = pats;
+            meta = m;
+            live = false;
+            afterData('静态数据');
+        } catch (e) {
+            statusText.textContent = `静态数据加载失败：${(e as Error).message}`;
+        }
+    }
+
+    // ── 从 PyPI 实时刷新 ─────────────────────────────────
+    async function refreshFromPyPI() {
+        refreshBtn.disabled = true;
+        try {
+            const deps = await getHexBugDependencies();
+            const all: Pattern[] = [];
+            const warnings: string[] = [];
+            let done = 0;
+            const total = deps.length;
+            statusText.textContent = `从 PyPI 拉取：0/${total}`;
+            refreshProgress.hidden = false;
+            for (const dep of deps) {
+                try {
+                    const { url } = await getLatestWheel(dep);
+                    const bytes = await (await fetch(url)).arrayBuffer();
+                    const { patterns: pats } = extractPatternsFromWheel(bytes, dep);
+                    all.push(...pats);
+                } catch (e) {
+                    warnings.push(`${dep}: ${(e as Error).message}`);
+                }
+                done++;
+                statusText.textContent = `从 PyPI 拉取：${done}/${total}`;
+                await new Promise((r) => setTimeout(r, 50)); // 轻微限速
+            }
+            all.sort((a, b) => a.pkg.localeCompare(b.pkg) || a.id.localeCompare(b.id));
+            patterns = all;
+            meta = {
+                updatedAt: new Date().toISOString(),
+                total: all.length,
+                packages: deps.length,
+                langs: [...new Set(all.flatMap((p) => Object.keys(p.names)))].sort(),
+            };
+            live = true;
+            refreshProgress.hidden = true;
+            statusText.innerHTML = `已从 PyPI 实时刷新：${all.length.toLocaleString()} 个图案 / ${deps.length} 个包` +
+                (warnings.length ? `（${warnings.length} 个包失败：${escapeHtml(warnings.join('；'))}）` : '');
+            afterData('实时数据');
+        } catch (e) {
+            statusText.textContent = `刷新失败（可能被跨域策略拦截）：${(e as Error).message}`;
+            refreshProgress.hidden = true;
+        } finally {
+            refreshBtn.disabled = false;
+        }
+    }
+
+    // ── 渲染 ─────────────────────────────────────────────
+    function afterData(source: string) {
+        // 语言选项
+        const prevLang = lang;
+        langEl.innerHTML = meta.langs
+            .map((l) => `<option value="${l}" ${l === prevLang ? 'selected' : ''}>${langLabel(l)}</option>`)
+            .join('');
+        if (!meta.langs.includes(lang)) { lang = meta.langs.includes('zh_cn') ? 'zh_cn' : meta.langs[0] ?? 'en_us'; langEl.value = lang; }
+        // 模组选项
+        const mods = [...new Set(patterns.map((p) => p.modid))].sort();
+        const prevMod = modEl.value;
+        modEl.innerHTML = '<option value="">全部模组</option>' + mods
+            .map((m) => `<option value="${m}" ${m === prevMod ? 'selected' : ''}>${m}</option>`)
+            .join('');
+        statusText.textContent = `${source}：${patterns.length.toLocaleString()} 个图案 · ${meta.packages} 个包 · ${meta.langs.length} 种语言` +
+            ` · 更新于 ${new Date(meta.updatedAt).toLocaleString('zh-CN')}` + (live ? '（未持久化，刷新页面恢复）' : '');
+        render();
+    }
+
+    function render() {
+        const q = searchEl.value.trim().toLowerCase();
+        const mod = modEl.value;
+        const list = patterns.filter((p) => (!mod || p.modid === mod) && matches(p, q));
+        const shown = list.slice(0, 200);
+        detailEl.hidden = true;
+        detailEl.innerHTML = '';
+        if (!shown.length) {
+            resultsEl.innerHTML = '<div class="result-empty">没有匹配的图案。</div>';
+            return;
+        }
+        const frag = document.createDocumentFragment();
+        for (const p of shown) {
+            const card = document.createElement('div');
+            card.className = 'p-card';
+            card.innerHTML = `
+                <div class="p-svg">${patternSvg(p, 14)}</div>
+                <div class="p-info">
+                    <div class="p-name">${escapeHtml(displayName(p))}</div>
+                    <div class="p-id">hexcasting:${escapeHtml(p.id)}</div>
+                    <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span></div>
+                    ${Object.entries(p.names).filter(([l]) => l !== lang).slice(0, 3).length
+                        ? `<div class="p-langs">${Object.entries(p.names).filter(([l]) => l !== lang).slice(0, 3)
+                            .map(([l, n]) => `<span class="p-langname" title="${escapeHtml(langLabel(l))}">${escapeHtml(n)}</span>`).join('')}</div>`
+                        : ''}
+                </div>`;
+            card.addEventListener('click', () => showDetail(p, card));
+            frag.appendChild(card);
+        }
+        resultsEl.innerHTML = '';
+        resultsEl.appendChild(frag);
+        if (list.length > shown.length) {
+            const more = document.createElement('div');
+            more.className = 'result-empty';
+            more.textContent = `仅显示前 200 条（共 ${list.length} 条匹配），请细化搜索关键词。`;
+            resultsEl.appendChild(more);
+        }
+    }
+
+    function showDetail(p: Pattern, card: HTMLElement) {
+        detailEl.hidden = false;
+        const nameRows = Object.entries(p.names).length
+            ? Object.entries(p.names).map(([l, n]) =>
+                `<div class="detail-name-row"><span class="detail-name-lang">${escapeHtml(langLabel(l))}</span><span>${escapeHtml(n)}</span></div>`).join('')
+            : '<div class="detail-name-row"><span class="detail-name-lang">—</span><span>（该图案暂无已收录名称）</span></div>';
+        detailEl.innerHTML = `
+            <div class="detail-head">
+                <div class="detail-svg">${patternSvg(p, 22)}</div>
+                <div class="detail-names">
+                    <div class="p-name" style="font-size:1.1rem;">${escapeHtml(displayName(p))}</div>
+                    <div class="p-id" style="font-size:0.9rem;">hexcasting:${escapeHtml(p.id)}</div>
+                    <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span><span class="p-tag">${escapeHtml(p.pkg)}</span></div>
+                    ${nameRows}
+                </div>
+            </div>
+            <div class="detail-copy">
+                <button class="copy-btn" data-copy="hexcasting:${p.id}">复制注册名</button>
+                <button class="copy-btn" data-copy="${iotaPortable(p)}">复制 iota 便携语法</button>
+            </div>`;
+        detailEl.querySelectorAll<HTMLButtonElement>('.copy-btn').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(btn.dataset.copy!);
+                    const old = btn.textContent;
+                    btn.textContent = '已复制 ✓';
+                    btn.classList.add('copied');
+                    setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1200);
+                } catch { btn.textContent = '复制失败'; }
+            });
+        });
+        detailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ── 事件 ─────────────────────────────────────────────
+    let debounce: number | undefined;
+    searchEl.addEventListener('input', () => {
+        window.clearTimeout(debounce);
+        debounce = window.setTimeout(render, 120);
+    });
+    langEl.addEventListener('change', () => { lang = langEl.value; render(); });
+    modEl.addEventListener('change', render);
+    refreshBtn.addEventListener('click', refreshFromPyPI);
+
+    loadStatic();
+</script>

@@ -7,8 +7,9 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "node scripts/fetch-hexdoc-patterns.mjs --if-missing && astro build",
     "preview": "astro preview",
+    "fetch:patterns": "node scripts/fetch-hexdoc-patterns.mjs",
     "astro": "astro"
   },
   "dependencies": {

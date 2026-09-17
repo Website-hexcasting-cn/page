@@ -12,6 +12,7 @@ const pathname = Astro.url.pathname;
         <nav class="site-nav" id="primary-nav">
             <a href="/" class:list={{ active: pathname === '/' }}>首页</a>
             <a href="/posts/" class:list={{ active: pathname.startsWith('/posts/') }}>文章</a>
+            <a href="/patterns/" class:list={{ active: pathname.startsWith('/patterns/') }}>图案检索</a>
         </nav>
     </div>
 </header>

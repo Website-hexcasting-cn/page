@@ -115,3 +115,12 @@ public/
 ## 测试页
 
 `/iota-demo/`：输入任意 `iota:...` 实时渲染，内置全类型示例（含便携语法与 quine 列表）。
+
+## 图案检索工具（`/patterns/`）
+
+从 [PyPI HexBug-data](https://pypi.org/project/HexBug-data/) 索引咒法图案，支持**注册名 ↔ 译名双向查找**、多语言名称展示、图案 SVG 渲染与格式复制。
+
+- **数据管道**：`pnpm fetch:patterns` 拉取 HexBug-data 的 `hexdoc-*` 依赖 wheel，提取图案（`start_dir`/`angles`）与语言文件（键 `hexcasting.action.<id>`），生成 `public/pattern-data/` 静态 JSON。
+- **构建集成**：`pnpm build` 前会自动执行（`--if-missing`，已有数据则跳过）；首次请先跑 `pnpm fetch:patterns`。
+- **实时刷新**：页面右上角「从 PyPI 刷新」按钮可在浏览器内直接拉取最新数据（PyPI 与 wheel CDN 均允许跨域），结果仅保存在内存。
+- **实现**：`scripts/fetch-hexdoc-patterns.mjs`（构建脚本）、`src/lib/hexdocData.js`（前后端共用的提取逻辑）、`src/lib/zipReader.js`（零依赖 ZIP 解压）、`src/lib/jsonLoose.js`（注释/尾逗号容错 JSON）。图案渲染复用 `iotaRender.js`。
