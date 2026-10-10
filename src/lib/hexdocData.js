@@ -7,7 +7,10 @@ export const PYPI_JSON_URL = (pkg) => `https://pypi.org/pypi/${pkg}/json`;
 export const USER_AGENT = 'hexcasting-cn-fetch/1.0';
 
 export async function fetchPyPIJson(pkg) {
-    const res = await fetch(PYPI_JSON_URL(pkg), { headers: { 'User-Agent': USER_AGENT } });
+    const res = await fetch(PYPI_JSON_URL(pkg), {
+        headers: { 'User-Agent': USER_AGENT },
+        signal: AbortSignal.timeout(45_000),
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${pkg}`);
     return res.json();
 }

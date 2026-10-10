@@ -27,15 +27,13 @@ const EXTRA_PACKAGES = [
     'hexdoc-miehex',
 ];
 
-// 手册（hexdoc 网页书）来源：包名 → 书 URL 模板
-// 原版用 hexxy.media 的 latest/1.20 分支；用户的书用 hexbook.xm1221.cn（hash 从 sitemap 动态获取）
-const BOOKS = [
-    { pkg: 'hexdoc-hexcasting', url: 'https://hexcasting.hexxy.media/v/latest/1.20' },
-    { pkg: 'hexdoc-miehex-revolution', url: 'https://hexbook.xm1221.cn/miehex-revolution' },
-    { pkg: 'hexdoc-abadoned-greatwork', url: 'https://hexbook.xm1221.cn/abadoned-greatwork' },
-    { pkg: 'hexdoc-almightly-staff', url: 'https://hexbook.xm1221.cn/almightly-staff' },
-    { pkg: 'hexdoc-miehex', url: 'https://hexbook.xm1221.cn/miehex-for-bigpackage' },
-];
+// 自建书不在 <mod>.hexxy.media 上，用站点根路径，版本从 sitemap 解析。
+const CUSTOM_BOOK_ROOTS = {
+    'hexdoc-miehex-revolution': 'https://hexbook.xm1221.cn/miehex-revolution',
+    'hexdoc-abadoned-greatwork': 'https://hexbook.xm1221.cn/abadoned-greatwork',
+    'hexdoc-almightly-staff': 'https://hexbook.xm1221.cn/almightly-staff',
+    'hexdoc-miehex': 'https://hexbook.xm1221.cn/miehex-for-bigpackage',
+};
 
 const BOOK_LANGS = ['zh_cn', 'en_us'];
 
@@ -47,91 +45,156 @@ if (ifMissing && existsSync(join(OUT_DIR, 'patterns.json'))) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const FETCH_MS = 45_000;
+const fetchOpts = () => ({ headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(FETCH_MS) });
 
 async function fetchBuffer(url) {
-    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+    const res = await fetch(url, fetchOpts());
     if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`);
     return res.arrayBuffer();
 }
 
 async function fetchText(url) {
-    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+    const res = await fetch(url, { ...fetchOpts(), signal: AbortSignal.timeout(120_000) });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`);
     return res.text();
 }
 
-/** 从 hexdoc 网页书抓取图案介绍（多语言），挂到 patterns（按 id） */
-async function fetchBookDescriptions(book, knownIds) {
-    const descMap = new Map(); // id → { lang: {title, text} }
-    let base = book.url;
+/** 网络抖动时再试一次。 */
+async function attempt(label, fn) {
     try {
-        // hexbook 部署：从 sitemap 拿当前 hash（latest/<hash>）
-        if (book.url.includes('hexbook.xm1221.cn')) {
-            const sitemap = await (await fetch(`${book.url}/meta/sitemap.json`, { headers: { 'User-Agent': USER_AGENT } })).json();
-            const versionKey = Object.keys(sitemap).find((k) => k.startsWith('latest/'));
-            if (versionKey) base = `${book.url}/v/${versionKey}`;
-        }
-    } catch { /* 保持原 URL */ }
+        return await fn();
+    } catch (e) {
+        console.warn(`  ↻ ${label} 重试：${e.message}`);
+        await sleep(800);
+        return await fn();
+    }
+}
 
+/** sitemap 里优先 1.20 系 latest，否则 latest/main，再否则任一 latest/。 */
+function pickLatestKey(keys) {
+    const latest = keys.filter((k) => k.startsWith('latest/'));
+    return latest.find((k) => /1\.20/.test(k))
+        || latest.find((k) => k === 'latest/main')
+        || latest[0]
+        || null;
+}
+
+/** 解析一本书的版本化根路径（不含语言）。找不到返回 null。 */
+async function resolveBookBase(pkg) {
+    const custom = CUSTOM_BOOK_ROOTS[pkg];
+    const root = custom ?? `https://${pkg.slice('hexdoc-'.length)}.hexxy.media`;
+    try {
+        const sitemap = await attempt(`${pkg} sitemap`, async () => {
+            const res = await fetch(`${root}/meta/sitemap.json`, fetchOpts());
+            if (!res.ok) throw new Error(`sitemap HTTP ${res.status}`);
+            return res.json();
+        });
+        const versionKey = pickLatestKey(Object.keys(sitemap));
+        if (!versionKey) throw new Error('sitemap 无 latest 分支');
+        return `${root}/v/${versionKey}`;
+    } catch (e) {
+        if (custom) return root;
+        console.warn(`  ⚠ ${pkg} 无网页书：${e.message}`);
+        return null;
+    }
+}
+
+const regNameOf = (p) => (p.ns ? `${p.ns}:${p.id}` : p.id);
+
+/**
+ * 把一条书页条目挂到图案上。有命名空间时按注册名精确匹配；
+ * 旧锚点没有命名空间，只在本书对应的包里按短 id 匹配，避免串到别的模组。
+ */
+function findPatternForEntry(patterns, bookPkg, entry) {
+    if (entry.ns) return patterns.find((p) => regNameOf(p) === `${entry.ns}:${entry.id}`) ?? null;
+    const inPkg = patterns.filter((p) => p.pkg === bookPkg && p.id === entry.id);
+    if (inPkg.length === 1) return inPkg[0];
+    const global = patterns.filter((p) => p.id === entry.id);
+    return global.length === 1 ? global[0] : null;
+}
+
+/** 从 hexdoc 网页书抓取图案介绍（多语言）并写入 patterns。 */
+async function fetchBookDescriptions(pkg, base, patterns, known) {
+    let attached = 0;
     for (const lang of BOOK_LANGS) {
         try {
-            const html = await fetchText(`${base}/${lang}`);
-            const entries = extractPatternEntries(html, knownIds);
-            for (const [id, entry] of entries) {
-                if (!descMap.has(id)) descMap.set(id, {});
-                descMap.get(id)[lang] = entry;
+            const html = await attempt(`${pkg} 书[${lang}]`, () => fetchText(`${base}/${lang}`));
+            const entries = extractPatternEntries(html, known);
+            let langHits = 0;
+            for (const entry of entries.values()) {
+                const pattern = findPatternForEntry(patterns, pkg, entry);
+                if (!pattern) continue;
+                const own = pattern.pkg === pkg;
+                if (entry.category && (own || !pattern.category)) pattern.category = entry.category;
+                if (!entry.title && !entry.text) continue;
+                // 图案自己的书可以覆盖其它书先写入的介绍；其它书只补缺
+                if (!own && pattern.desc?.[lang]) continue;
+                if (!pattern.desc) pattern.desc = {};
+                const prev = pattern.desc[lang];
+                pattern.desc[lang] = { title: entry.title, text: entry.text };
+                if (!prev) langHits++;
             }
-            console.log(`  ✓ ${book.pkg} 书[${lang}]: ${entries.size} 个图案条目`);
+            attached += langHits;
+            console.log(`  ✓ ${pkg} 书[${lang}]: 解析 ${entries.size}，新写入 ${langHits}`);
         } catch (e) {
-            console.warn(`  ⚠ ${book.pkg} 书[${lang}] 抓取失败：${e.message}`);
+            console.warn(`  ⚠ ${pkg} 书[${lang}] 抓取失败：${e.message}`);
         }
         await sleep(150);
     }
-    return descMap;
+    return attached;
 }
 
 // ─── 主流程 ─────────────────────────────────────────────
-console.log('[fetch-hexdoc-patterns] 拉取 HexBug-data 元数据…');
-const mainInfo = await fetchPyPIJson('HexBug-data');
-console.log(`  HexBug-data v${mainInfo.info?.version}`);
-const hexDeps = await getHexBugDependencies();
-// 合并用户自己的包（去重）
-const allDeps = [...new Set([...hexDeps, ...EXTRA_PACKAGES])];
-console.log(`  hexdoc-* 依赖：${hexDeps.length} 个 + 额外 ${EXTRA_PACKAGES.length} 个 = ${allDeps.length} 个`);
+const booksOnly = process.argv.includes('--books-only');
+const pkgArg = process.argv.find((a) => a.startsWith('--pkgs='));
+const pkgFilter = pkgArg ? new Set(pkgArg.slice('--pkgs='.length).split(',').filter(Boolean)) : null;
 
-const packages = [];
-const allPatterns = [];
-for (const dep of allDeps) {
-    try {
-        const { url, version } = await getLatestWheel(dep);
-        const bytes = await fetchBuffer(url);
-        const { patterns, modid } = extractPatternsFromWheel(bytes, dep);
-        packages.push({ pkg: dep, version, count: patterns.length, modid });
-        allPatterns.push(...patterns);
-        console.log(`  ✓ ${dep} v${version}: ${patterns.length} patterns（modid=${modid}）`);
-        await sleep(200); // 礼貌限速
-    } catch (e) {
-        console.warn(`  ⚠ ${dep} 处理失败：${e.message}`);
-        packages.push({ pkg: dep, version: 'error', count: 0, error: String(e.message) });
+let packages = [];
+let allPatterns = [];
+if (booksOnly) {
+    allPatterns = JSON.parse(readFileSync(join(OUT_DIR, 'patterns.json'), 'utf8'));
+    packages = JSON.parse(readFileSync(join(OUT_DIR, 'packages.json'), 'utf8'));
+    console.log(`[fetch-hexdoc-patterns] --books-only，沿用已有 ${allPatterns.length} 个图案`);
+} else {
+    console.log('[fetch-hexdoc-patterns] 拉取 HexBug-data 元数据…');
+    const mainInfo = await fetchPyPIJson('HexBug-data');
+    console.log(`  HexBug-data v${mainInfo.info?.version}`);
+    const hexDeps = await getHexBugDependencies();
+    // 合并用户自己的包（去重）
+    const allDeps = [...new Set([...hexDeps, ...EXTRA_PACKAGES])];
+    console.log(`  hexdoc-* 依赖：${hexDeps.length} 个 + 额外 ${EXTRA_PACKAGES.length} 个 = ${allDeps.length} 个`);
+
+    for (const dep of allDeps) {
+        console.log(`  … ${dep}`);
+        try {
+            const { url, version } = await getLatestWheel(dep);
+            const bytes = await fetchBuffer(url);
+            const { patterns, modid } = extractPatternsFromWheel(bytes, dep);
+            packages.push({ pkg: dep, version, count: patterns.length, modid });
+            allPatterns.push(...patterns);
+            console.log(`  ✓ ${dep} v${version}: ${patterns.length} patterns（modid=${modid}）`);
+            await sleep(200); // 礼貌限速
+        } catch (e) {
+            console.warn(`  ⚠ ${dep} 处理失败：${e.message}`);
+            packages.push({ pkg: dep, version: 'error', count: 0, error: String(e.message) });
+        }
     }
 }
 
-// 手册介绍（先建 id 集合用于过滤）
-const knownIds = new Set(allPatterns.map((p) => p.id));
-const descByPattern = new Map();
-for (const book of BOOKS) {
-    console.log(`[book] ${book.pkg} → ${book.url}`);
-    const map = await fetchBookDescriptions(book, knownIds);
-    for (const [id, desc] of map) {
-        if (!descByPattern.has(id)) descByPattern.set(id, {});
-        Object.assign(descByPattern.get(id), desc);
-    }
-}
-
-// 合并 desc 到图案
-for (const p of allPatterns) {
-    const desc = descByPattern.get(p.id);
-    if (desc) p.desc = desc;
+// 手册介绍：每个成功拉到图案的包都尝试对应网页书（hexxy.media 或自建站）
+const known = {
+    regs: new Set(allPatterns.map(regNameOf)),
+    ids: new Set(allPatterns.map((p) => p.id)),
+};
+const bookPkgs = [...new Set(allPatterns.map((p) => p.pkg))].filter((pkg) => !pkgFilter || pkgFilter.has(pkg));
+let booksOk = 0;
+for (const pkg of bookPkgs) {
+    const base = await resolveBookBase(pkg);
+    if (!base) continue;
+    console.log(`[book] ${pkg} → ${base}`);
+    const attached = await fetchBookDescriptions(pkg, base, allPatterns, known);
+    if (attached > 0) booksOk++;
 }
 
 allPatterns.sort((a, b) => a.pkg.localeCompare(b.pkg) || a.id.localeCompare(b.id));
@@ -145,12 +208,13 @@ const meta = {
     packages: packages.length,
     langs: allLangs,
     withDesc: descCount,
+    books: new Set(allPatterns.filter((p) => p.desc).map((p) => p.pkg)).size,
 };
 
 mkdirSync(OUT_DIR, { recursive: true });
 writeFileSync(join(OUT_DIR, 'patterns.json'), JSON.stringify(allPatterns));
-writeFileSync(join(OUT_DIR, 'packages.json'), JSON.stringify(packages, null, 2));
+if (!booksOnly) writeFileSync(join(OUT_DIR, 'packages.json'), JSON.stringify(packages, null, 2));
 writeFileSync(join(OUT_DIR, 'meta.json'), JSON.stringify(meta, null, 2));
 console.log(`[fetch-hexdoc-patterns] 完成：${allPatterns.length} 个图案，${packages.length} 个包，语言=${allLangs.join(',')}`);
-console.log(`  手册介绍覆盖：${descCount}/${allPatterns.length} 个图案`);
+console.log(`  手册介绍覆盖：${descCount}/${allPatterns.length} 个图案（${booksOk} 本书有命中）`);
 console.log(`  输出 → public/pattern-data/`);

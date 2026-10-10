@@ -49,7 +49,7 @@
   },
   {
     "pkg": "hexdoc-hexautomata",
-    "version": "0.3.5.1.1",
+    "version": "0.3.5.1.1.1",
     "count": 3,
     "modid": "hexautomata"
   },
@@ -91,8 +91,8 @@
   },
   {
     "pkg": "hexdoc-hexflow",
-    "version": "0.6.0.1.0.1",
-    "count": 15,
+    "version": "0.7.0.1.0.1",
+    "count": 17,
     "modid": "hexflow"
   },
   {
@@ -301,7 +301,7 @@
   },
   {
     "pkg": "hexdoc-yaha",
-    "version": "0.4.0.1.0",
+    "version": "0.4.1.1.0",
     "count": 18,
     "modid": "yaha"
   },

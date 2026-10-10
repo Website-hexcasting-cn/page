@@ -1,7 +1,7 @@
 {
   "source": "PyPI HexBug-data + hexdoc 网页书",
-  "updatedAt": "2026-09-17T08:41:03.326Z",
-  "total": 1293,
+  "updatedAt": "2026-10-10T05:15:21.677Z",
+  "total": 1295,
   "packages": 55,
   "langs": [
     "de_de",
@@ -14,5 +14,6 @@
     "ru_ru",
     "zh_cn"
   ],
-  "withDesc": 221
+  "withDesc": 543,
+  "books": 12
 }

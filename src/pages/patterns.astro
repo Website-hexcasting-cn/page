@@ -9,13 +9,13 @@ import BaseLayout from '../layouts/baseLayout.astro';
                 <p class="tool-desc">
                     从 <a href="https://pypi.org/project/HexBug-data/" target="_blank" rel="noopener">PyPI HexBug-data</a>
                     索引的图案注册名与多语言译名。支持 <strong>注册名 → 译名</strong> 与
-                    <strong>译名 → 注册名</strong> 双向查找，并可渲染图案、复制格式。
+                    <strong>译名 → 注册名</strong> 双向查找，也可按签名搜索，并可渲染图案、复制格式。
                 </p>
             </header>
 
             <div class="tool-bar">
                 <input id="search" type="search" class="search-input" autocomplete="off" spellcheck="false"
-                    placeholder="输入注册名（如 get_caster / hexcasting:get_caster）或译名（如 制造者之墨）…" />
+                    placeholder="注册名、译名或签名（如 get_caster、意识之精思、qqaeaae）…" />
                 <select id="lang" class="lang-select" title="显示语言"></select>
                 <select id="mod-filter" class="lang-select" title="按模组过滤"><option value="">全部模组</option></select>
                 <button id="refresh" class="refresh-btn" type="button" title="从 PyPI 实时拉取最新数据">从 PyPI 刷新</button>
@@ -26,15 +26,22 @@ import BaseLayout from '../layouts/baseLayout.astro';
                 <span id="refresh-progress" class="refresh-progress" hidden></span>
             </div>
 
-            <div id="results" class="results" aria-live="polite"></div>
-            <div id="detail" class="detail" hidden></div>
+            <div class="workspace">
+                <div id="results" class="results" aria-live="polite"></div>
+                <aside id="detail" class="detail">
+                    <div class="detail-sheet" id="detail-sheet">
+                        <button id="detail-close" class="detail-close" type="button">关闭</button>
+                        <div id="detail-body"></div>
+                    </div>
+                </aside>
+            </div>
         </div>
     </main>
 </BaseLayout>
 
 <style>
     .tool-main {
-        max-width: var(--container-narrow, 900px);
+        max-width: var(--container-max, 1200px);
         margin: 0 auto;
         padding: var(--space-xl) var(--space-lg) var(--space-2xl);
         width: 100%;
@@ -93,19 +100,30 @@ import BaseLayout from '../layouts/baseLayout.astro';
     }
     .refresh-progress { color: var(--color-primary); font-weight: 600; }
 
-    .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-md); }
+    .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+        gap: var(--space-lg);
+        align-items: start;
+    }
+    .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-md); align-content: start; }
     .result-empty { grid-column: 1 / -1; text-align: center; color: var(--color-text-muted); padding: var(--space-xl) 0; }
 
     .p-card {
         display: flex; align-items: center; gap: var(--space-md);
+        width: 100%;
+        font: inherit;
+        color: inherit;
         background: var(--color-bg-soft);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-md);
         padding: var(--space-md);
         cursor: pointer;
+        text-align: left;
         transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
     }
     .p-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--color-primary-light); }
+    .p-card.is-active { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(145, 75, 151, 0.2); }
     .p-svg { flex-shrink: 0; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: var(--radius-sm); }
     .p-svg svg { max-width: 100%; height: auto; }
     .p-info { flex: 1; min-width: 0; }
@@ -116,23 +134,36 @@ import BaseLayout from '../layouts/baseLayout.astro';
         font-size: 0.7rem; padding: 1px 7px; border-radius: 999px;
         background: rgba(145, 75, 151, 0.12); color: var(--color-primary-dark);
     }
-    .p-langs { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
-    .p-langname { font-size: 0.75rem; color: var(--color-text-muted); background: #fff; border: 1px solid var(--color-border); border-radius: 4px; padding: 1px 6px; }
     .p-desc {
         font-size: 0.78rem; color: var(--color-text-muted); line-height: 1.55;
         margin-top: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
 
     .detail {
-        margin-top: var(--space-lg);
+        position: sticky;
+        top: 84px;
+        max-height: calc(100vh - 100px);
+        overflow: auto;
         background: var(--color-bg-soft);
         border: 1px solid var(--color-border);
         border-radius: var(--radius-md);
         padding: var(--space-lg);
     }
+    .detail-empty { color: var(--color-text-muted); line-height: 1.7; font-size: 0.9rem; }
+    .detail-close {
+        display: none;
+        margin-bottom: var(--space-sm);
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--color-border);
+        background: #fff;
+        color: var(--color-text);
+        font-weight: 600;
+        cursor: pointer;
+    }
     .detail-head { display: flex; gap: var(--space-lg); align-items: flex-start; flex-wrap: wrap; }
     .detail-svg { background: #fff; border-radius: var(--radius-sm); padding: var(--space-md); display: inline-flex; }
-    .detail-names { flex: 1; min-width: 220px; }
+    .detail-names { flex: 1; min-width: 160px; }
     .detail-other-names { margin-top: 8px; font-size: 0.8rem; color: var(--color-text-faint); line-height: 1.8; }
     .detail-other-name { cursor: help; }
     .detail-name-sep { margin: 0 2px; }
@@ -147,13 +178,41 @@ import BaseLayout from '../layouts/baseLayout.astro';
 
     .detail-desc { margin-top: var(--space-lg); border-top: 1px solid var(--color-border); padding-top: var(--space-md); }
     .detail-desc-head { font-weight: 700; color: var(--color-primary); margin-bottom: var(--space-sm); font-size: 0.95rem; }
+    .detail-desc-note { font-size: 0.75rem; color: var(--color-text-faint); font-weight: 500; margin-left: 6px; }
     .detail-desc-title { font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
     .detail-desc-text { color: var(--color-text-muted); line-height: 1.8; font-size: 0.9rem; white-space: pre-line; }
+    .detail-desc-missing { color: var(--color-text-faint); font-size: 0.9rem; }
 
-    @media screen and (max-width: 600px) {
+    @media screen and (max-width: 800px) {
         .tool-main { padding: var(--space-md); }
         .tool-card { padding: var(--space-lg) var(--space-md); }
         .tool-bar > * { flex: 1 1 100%; }
+        .workspace { display: block; }
+        .detail {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            max-height: none;
+            border: none;
+            border-radius: 0;
+            background: rgba(20, 10, 24, 0.45);
+            padding: 0;
+            overflow: hidden;
+        }
+        .detail.is-open { display: block; }
+        .detail.is-open .detail-sheet {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            max-height: 86vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 16px 16px 0 0;
+            padding: var(--space-lg) var(--space-md) calc(var(--space-lg) + env(safe-area-inset-bottom));
+        }
+        .detail-close { display: inline-flex; }
     }
 </style>
 
@@ -167,7 +226,7 @@ import BaseLayout from '../layouts/baseLayout.astro';
 
     // ── 常量 ─────────────────────────────────────────────
     const HEX_DIR_NAMES = ['NORTH_EAST', 'EAST', 'SOUTH_EAST', 'SOUTH_WEST', 'WEST', 'NORTH_WEST'];
-    const ANGLE_CHARS = { 0: 'w', 1: 'e', 2: 'd', 3: 's', 4: 'a', 5: 'q' };
+    const ANGLE_CHARS = ['w', 'e', 'd', 's', 'a', 'q'];
     const LANG_LABELS: Record<string, string> = {
         en_us: 'English', zh_cn: '简体中文', zh_tw: '繁體中文', ja_jp: '日本語', ko_kr: '한국어',
         ru_ru: 'Русский', de_de: 'Deutsch', fr_fr: 'Français', es_es: 'Español', es_mx: 'Español (MX)',
@@ -175,16 +234,26 @@ import BaseLayout from '../layouts/baseLayout.astro';
         fi_fi: 'Suomi', uk_ua: 'Українська', en_pt: 'Pirate English',
     };
     const langLabel = (l: string) => LANG_LABELS[l] ?? l;
+    const EMPTY_HINT = '输入关键词，或选择一个模组浏览。';
+    const DETAIL_HINT = '点选一个图案查看译名、手册介绍和复制格式。';
 
     // ── 状态 ─────────────────────────────────────────────
-    type Pattern = { id: string; ns: string | null; modid: string; pkg: string; startDir: number; angles: number[]; names: Record<string, string>; desc?: Record<string, { title: string; text: string }> };
+    type Pattern = {
+        id: string; ns: string | null; modid: string; pkg: string;
+        startDir: number; angles: number[]; names: Record<string, string>;
+        category?: string;
+        desc?: Record<string, { title: string; text: string }>;
+    };
 
     /** 注册名（带各自 mod 的命名空间） */
     const regName = (p: Pattern) => (p.ns ? `${p.ns}:${p.id}` : p.id);
     let patterns: Pattern[] = [];
-    let meta = { updatedAt: '', total: 0, packages: 0, langs: [] as string[] };
-    let live = false; // true = 数据来自 PyPI 实时刷新
+    let meta = { updatedAt: '', total: 0, packages: 0, langs: [] as string[], withDesc: 0 };
+    let live = false;
     let lang = 'zh_cn';
+    let selectedId = '';
+    /** 静态数据里的手册介绍，PyPI 刷新后按注册名补回 */
+    const descByReg = new Map<string, { desc?: Pattern['desc']; category?: string }>();
 
     const $ = (id: string) => document.getElementById(id)!;
     const searchEl = $('search') as HTMLInputElement;
@@ -195,6 +264,14 @@ import BaseLayout from '../layouts/baseLayout.astro';
     const refreshProgress = $('refresh-progress');
     const resultsEl = $('results');
     const detailEl = $('detail');
+    const detailBody = $('detail-body');
+
+    const initial = new URLSearchParams(location.search);
+    if (initial.get('q')) searchEl.value = initial.get('q')!;
+    if (initial.get('lang')) lang = initial.get('lang')!;
+    selectedId = initial.get('id') ?? '';
+    const initialMod = initial.get('mod') ?? '';
+    let appliedInitialMod = false;
 
     // ── 工具 ─────────────────────────────────────────────
     const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) =>
@@ -206,24 +283,79 @@ import BaseLayout from '../layouts/baseLayout.astro';
     const displayName = (p: Pattern) =>
         p.names[lang] ?? p.names['zh_cn'] ?? p.names['en_us'] ?? Object.values(p.names)[0] ?? p.id;
 
-    /** 手册介绍：当前语言 → zh_cn → en_us */
+    const angleChar = (a: number) => ANGLE_CHARS[((a % 6) + 6) % 6] ?? '';
+    const dirName = (p: Pattern) => HEX_DIR_NAMES[((p.startDir % 6) + 6) % 6] ?? 'NORTH_EAST';
+    const signature = (p: Pattern) => p.angles.map(angleChar).join('');
+    const signatureWrapped = (p: Pattern) => `{${dirName(p)},${signature(p)}}`;
+
+    /** 手册介绍：当前语言 → zh_cn → en_us → 任一语言 */
     const bookDesc = (p: Pattern) => {
         if (!p.desc) return null;
-        return p.desc[lang] ?? p.desc['zh_cn'] ?? p.desc['en_us'] ?? null;
+        const order = [lang, 'zh_cn', 'en_us', ...Object.keys(p.desc)];
+        for (const l of order) {
+            const d = p.desc[l];
+            if (d && (d.title || d.text)) return { ...d, lang: l };
+        }
+        return null;
     };
 
-    const iotaPortable = (p: Pattern) => {
-        const sig = p.angles.map((a) => ANGLE_CHARS[((a % 6) + 6) % 6] ?? '').join('');
-        return `iota:pattern{${HEX_DIR_NAMES[((p.startDir % 6) + 6) % 6] ?? 'NORTH_EAST'},${sig}}`;
-    };
+    const iotaPortable = (p: Pattern) => `iota:pattern${signatureWrapped(p)}`;
 
-    const matches = (p: Pattern, q: string) => {
-        if (!q) return true;
-        if (p.id.toLowerCase().includes(q)) return true;
-        if (regName(p).includes(q)) return true;
-        for (const v of Object.values(p.names)) if (v.toLowerCase().includes(q)) return true;
-        return false;
-    };
+    /** 越小越靠前。完全相等 > 前缀 > 包含；当前语言译名和注册名优先于其它语言与正文。 */
+    function matchScore(p: Pattern, q: string): number {
+        let best = Infinity;
+        const consider = (value: string, base: number) => {
+            if (!value) return;
+            const v = value.toLowerCase();
+            if (v === q) best = Math.min(best, base);
+            else if (v.startsWith(q)) best = Math.min(best, base + 10);
+            else if (v.includes(q)) best = Math.min(best, base + 20);
+        };
+        consider(regName(p), 0);
+        consider(p.id, 0);
+        consider(p.names[lang] ?? '', 0);
+        consider(signature(p), 0);
+        consider(signatureWrapped(p), 0);
+        consider(iotaPortable(p), 0);
+        for (const [l, name] of Object.entries(p.names)) {
+            if (l !== lang) consider(name, 30);
+        }
+        const desc = bookDesc(p);
+        if (desc) {
+            consider(desc.title, 60);
+            if (desc.text && desc.text.toLowerCase().includes(q)) best = Math.min(best, 90);
+        }
+        return best;
+    }
+
+    function rememberStatic(list: Pattern[]) {
+        descByReg.clear();
+        for (const p of list) {
+            if (p.desc || p.category) descByReg.set(regName(p), { desc: p.desc, category: p.category });
+        }
+    }
+
+    function applyStaticDesc(list: Pattern[]) {
+        for (const p of list) {
+            const prev = descByReg.get(regName(p));
+            if (!prev) continue;
+            if (prev.desc) p.desc = prev.desc;
+            if (prev.category) p.category = prev.category;
+        }
+    }
+
+    let suppressUrl = false;
+    function writeUrl() {
+        if (suppressUrl) return;
+        const u = new URL(location.href);
+        const set = (k: string, v: string) => { if (v) u.searchParams.set(k, v); else u.searchParams.delete(k); };
+        set('q', searchEl.value.trim());
+        set('mod', modEl.value);
+        set('lang', lang);
+        set('id', selectedId);
+        const next = u.pathname + u.search;
+        if (next !== location.pathname + location.search) history.replaceState(null, '', next);
+    }
 
     // ── 加载静态数据 ─────────────────────────────────────
     async function loadStatic() {
@@ -235,6 +367,7 @@ import BaseLayout from '../layouts/baseLayout.astro';
             patterns = pats;
             meta = m;
             live = false;
+            rememberStatic(patterns);
             afterData('静态数据');
         } catch (e) {
             statusText.textContent = `静态数据加载失败：${(e as Error).message}`;
@@ -263,9 +396,10 @@ import BaseLayout from '../layouts/baseLayout.astro';
                 }
                 done++;
                 statusText.textContent = `从 PyPI 拉取：${done}/${total}`;
-                await new Promise((r) => setTimeout(r, 50)); // 轻微限速
+                await new Promise((r) => setTimeout(r, 50));
             }
             all.sort((a, b) => a.pkg.localeCompare(b.pkg) || a.id.localeCompare(b.id));
+            applyStaticDesc(all);
             patterns = all;
             meta = {
                 updatedAt: new Date().toISOString(),
@@ -289,96 +423,150 @@ import BaseLayout from '../layouts/baseLayout.astro';
 
     // ── 渲染 ─────────────────────────────────────────────
     function afterData(source: string) {
-        // 语言选项
         const prevLang = lang;
         langEl.innerHTML = meta.langs
             .map((l) => `<option value="${l}" ${l === prevLang ? 'selected' : ''}>${langLabel(l)}</option>`)
             .join('');
-        if (!meta.langs.includes(lang)) { lang = meta.langs.includes('zh_cn') ? 'zh_cn' : meta.langs[0] ?? 'en_us'; langEl.value = lang; }
-        // 模组选项
+        if (meta.langs.includes(lang)) langEl.value = lang;
+        else { lang = meta.langs.includes('zh_cn') ? 'zh_cn' : meta.langs[0] ?? 'en_us'; langEl.value = lang; }
         const mods = [...new Set(patterns.map((p) => p.modid))].sort();
-        const prevMod = modEl.value;
+        const prevMod = appliedInitialMod ? modEl.value : initialMod;
+        appliedInitialMod = true;
         modEl.innerHTML = '<option value="">全部模组</option>' + mods
             .map((m) => `<option value="${m}" ${m === prevMod ? 'selected' : ''}>${m}</option>`)
             .join('');
+        const descN = patterns.filter((p) => p.desc).length;
         statusText.textContent = `${source}：${patterns.length.toLocaleString()} 个图案 · ${meta.packages} 个包 · ${meta.langs.length} 种语言` +
-            (meta.withDesc ? ` · ${meta.withDesc.toLocaleString()} 个有手册介绍` : '') +
-            ` · 更新于 ${new Date(meta.updatedAt).toLocaleString('zh-CN')}` + (live ? '（未持久化，刷新页面恢复）' : '');
+            (descN ? ` · ${descN.toLocaleString()} 个有手册介绍` : '') +
+            ` · 更新于 ${new Date(meta.updatedAt).toLocaleString('zh-CN')}` +
+            (live ? '（名称与签名为实时数据，手册介绍沿用站内静态数据；刷新页面恢复）' : '');
         render();
+        writeUrl();
     }
 
     function render() {
         const q = searchEl.value.trim().toLowerCase();
         const mod = modEl.value;
-        const list = patterns.filter((p) => (!mod || p.modid === mod) && matches(p, q));
-        const shown = list.slice(0, 200);
-        detailEl.hidden = true;
-        detailEl.innerHTML = '';
+        if (!q && !mod) {
+            resultsEl.innerHTML = `<div class="result-empty">${EMPTY_HINT}</div>`;
+            refreshDetail();
+            return;
+        }
+        const ranked: { p: Pattern; s: number }[] = [];
+        for (const p of patterns) {
+            if (mod && p.modid !== mod) continue;
+            const s = q ? matchScore(p, q) : 0;
+            if (s === Infinity) continue;
+            ranked.push({ p, s });
+        }
+        ranked.sort((a, b) => a.s - b.s || regName(a.p).localeCompare(regName(b.p)));
+        const shown = ranked.slice(0, 200);
         if (!shown.length) {
             resultsEl.innerHTML = '<div class="result-empty">没有匹配的图案。</div>';
+            refreshDetail();
             return;
         }
         const frag = document.createDocumentFragment();
-        for (const p of shown) {
-            const card = document.createElement('div');
-            card.className = 'p-card';
+        for (const { p } of shown) {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'p-card' + (regName(p) === selectedId ? ' is-active' : '');
+            card.dataset.id = regName(p);
             const desc = bookDesc(p);
+            const excerpt = desc?.text ? (desc.text.length > 72 ? desc.text.slice(0, 72) + '…' : desc.text) : '';
             card.innerHTML = `
                 <div class="p-svg">${patternSvg(p, 14)}</div>
                 <div class="p-info">
                     <div class="p-name">${escapeHtml(displayName(p))}</div>
                     <div class="p-id">${escapeHtml(regName(p))}</div>
-                    ${desc && desc.text ? `<div class="p-desc">${escapeHtml(desc.text.length > 72 ? desc.text.slice(0, 72) + '…' : desc.text)}</div>` : ''}
-                    <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span></div>
-                    ${Object.entries(p.names).filter(([l]) => l !== lang).slice(0, 3).length
-                        ? `<div class="p-langs">${Object.entries(p.names).filter(([l]) => l !== lang).slice(0, 3)
-                            .map(([l, n]) => `<span class="p-langname" title="${escapeHtml(langLabel(l))}">${escapeHtml(n)}</span>`).join('')}</div>`
-                        : ''}
+                    ${excerpt ? `<div class="p-desc">${escapeHtml(excerpt)}</div>` : ''}
+                    <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span>${p.category ? `<span class="p-tag">${escapeHtml(p.category)}</span>` : ''}</div>
                 </div>`;
-            card.addEventListener('click', () => showDetail(p, card));
+            card.addEventListener('click', () => selectPattern(p));
             frag.appendChild(card);
         }
         resultsEl.innerHTML = '';
         resultsEl.appendChild(frag);
-        if (list.length > shown.length) {
+        if (ranked.length > shown.length) {
             const more = document.createElement('div');
             more.className = 'result-empty';
-            more.textContent = `仅显示前 200 条（共 ${list.length} 条匹配），请细化搜索关键词。`;
+            more.textContent = `仅显示前 200 条（共 ${ranked.length} 条匹配），请细化搜索关键词。`;
             resultsEl.appendChild(more);
         }
+        refreshDetail();
     }
 
-    function showDetail(p: Pattern, card: HTMLElement) {
-        detailEl.hidden = false;
-        // 名称：当前语言名称 + 其他语言名称（无语言标签前缀，hover 提示语言）
+    function selectPattern(p: Pattern) {
+        selectedId = regName(p);
+        for (const el of resultsEl.querySelectorAll<HTMLElement>('.p-card')) {
+            el.classList.toggle('is-active', el.dataset.id === selectedId);
+        }
+        detailEl.classList.add('is-open');
+        fillDetail(p);
+        writeUrl();
+    }
+
+    function closeDetail() {
+        selectedId = '';
+        detailEl.classList.remove('is-open');
+        for (const el of resultsEl.querySelectorAll('.is-active')) el.classList.remove('is-active');
+        detailBody.innerHTML = `<div class="detail-empty">${DETAIL_HINT}</div>`;
+        writeUrl();
+    }
+
+    function refreshDetail() {
+        if (!selectedId) {
+            detailEl.classList.remove('is-open');
+            detailBody.innerHTML = `<div class="detail-empty">${DETAIL_HINT}</div>`;
+            return;
+        }
+        const p = patterns.find((x) => regName(x) === selectedId);
+        if (!p) {
+            detailEl.classList.add('is-open');
+            detailBody.innerHTML = '<div class="detail-empty">链接中的图案不在当前数据里。</div>';
+            return;
+        }
+        detailEl.classList.add('is-open');
+        fillDetail(p);
+    }
+
+    function fillDetail(p: Pattern) {
         const curName = displayName(p);
         const otherNames = Object.entries(p.names)
-            .filter(([l, n]) => n !== curName)
+            .filter(([, n]) => n !== curName)
             .map(([l, n]) => `<span class="detail-other-name" title="${escapeHtml(langLabel(l))}">${escapeHtml(n)}</span>`)
             .join('<span class="detail-name-sep"> · </span>');
-        // 手册介绍：只显示当前语言（bookDesc 已按 当前语言 → zh_cn → en_us 取一个）
         const desc = bookDesc(p);
+        const descNote = desc && desc.lang !== lang
+            ? `<span class="detail-desc-note">以下为${escapeHtml(langLabel(desc.lang))}</span>` : '';
         const descBlock = desc ? `
-            <div class="detail-desc"><div class="detail-desc-head">手册介绍</div>
+            <div class="detail-desc"><div class="detail-desc-head">手册介绍${descNote}</div>
                 ${desc.title ? `<div class="detail-desc-title">${escapeHtml(desc.title)}</div>` : ''}
-                ${desc.text ? `<div class="detail-desc-text">${escapeHtml(desc.text)}</div>` : ''}
-            </div>` : '';
-        detailEl.innerHTML = `
+                ${desc.text ? `<div class="detail-desc-text">${escapeHtml(desc.text)}</div>` : '<div class="detail-desc-missing">暂无手册介绍</div>'}
+            </div>` : `
+            <div class="detail-desc"><div class="detail-desc-head">手册介绍</div>
+                <div class="detail-desc-missing">暂无手册介绍</div>
+            </div>`;
+        const copies: [string, string][] = [
+            ['复制注册名', regName(p)],
+            ['复制签名', signatureWrapped(p)],
+            ['复制 iota 便携语法', iotaPortable(p)],
+        ];
+        detailBody.innerHTML = `
             <div class="detail-head">
                 <div class="detail-svg">${patternSvg(p, 22)}</div>
                 <div class="detail-names">
                     <div class="p-name" style="font-size:1.1rem;">${escapeHtml(curName)}</div>
                     <div class="p-id" style="font-size:0.9rem;">${escapeHtml(regName(p))}</div>
-                    <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span></div>
+                    <div class="p-meta"><span class="p-tag">${escapeHtml(p.modid)}</span>${p.category ? `<span class="p-tag">${escapeHtml(p.category)}</span>` : ''}</div>
                     ${otherNames ? `<div class="detail-other-names">${otherNames}</div>` : ''}
                 </div>
             </div>
             ${descBlock}
             <div class="detail-copy">
-                <button class="copy-btn" data-copy="${regName(p)}">复制注册名</button>
-                <button class="copy-btn" data-copy="${iotaPortable(p)}">复制 iota 便携语法</button>
+                ${copies.map(([label, value]) => `<button class="copy-btn" type="button" data-copy="${escapeHtml(value)}">${label}</button>`).join('')}
             </div>`;
-        detailEl.querySelectorAll<HTMLButtonElement>('.copy-btn').forEach((btn) => {
+        detailBody.querySelectorAll<HTMLButtonElement>('.copy-btn').forEach((btn) => {
             btn.addEventListener('click', async () => {
                 try {
                     await navigator.clipboard.writeText(btn.dataset.copy!);
@@ -389,18 +577,38 @@ import BaseLayout from '../layouts/baseLayout.astro';
                 } catch { btn.textContent = '复制失败'; }
             });
         });
-        detailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     // ── 事件 ─────────────────────────────────────────────
     let debounce: number | undefined;
     searchEl.addEventListener('input', () => {
         window.clearTimeout(debounce);
-        debounce = window.setTimeout(render, 120);
+        debounce = window.setTimeout(() => { render(); writeUrl(); }, 120);
     });
-    langEl.addEventListener('change', () => { lang = langEl.value; render(); });
-    modEl.addEventListener('change', render);
+    langEl.addEventListener('change', () => { lang = langEl.value; render(); writeUrl(); });
+    modEl.addEventListener('change', () => { render(); writeUrl(); });
     refreshBtn.addEventListener('click', refreshFromPyPI);
+    $('detail-close').addEventListener('click', closeDetail);
+    detailEl.addEventListener('click', (e) => {
+        if (e.target === detailEl) closeDetail();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && selectedId) closeDetail();
+    });
+    window.addEventListener('popstate', () => {
+        suppressUrl = true;
+        const p = new URLSearchParams(location.search);
+        searchEl.value = p.get('q') ?? '';
+        const nextLang = p.get('lang');
+        if (nextLang && [...langEl.options].some((o) => o.value === nextLang)) {
+            lang = nextLang;
+            langEl.value = nextLang;
+        }
+        modEl.value = p.get('mod') ?? '';
+        selectedId = p.get('id') ?? '';
+        render();
+        suppressUrl = false;
+    });
 
     loadStatic();
 </script>

@@ -6,15 +6,22 @@
 // 图案条目 div 内含：标题（pattern-title / entry-title）、canvas 签名（data-string/data-start）、介绍文本（<p>）。
 
 /**
- * 从 hexdoc 网页书 HTML 中提取图案条目。
- * @param {string} html 书页 index.html
- * @param {Set<string>} knownIds patterns.json 中已知的图案 id（用于过滤非图案锚点）
- * @returns {Map<string, {title: string, text: string, sig: string|null, start: string|null}>} id → 条目
+ * @typedef {{ regs?: Set<string>, ids?: Set<string> }} KnownPatterns
+ * @typedef {{ key: string, ns: string|null, id: string, category: string, title: string, text: string }} PatternEntry
  */
-export function extractPatternEntries(html, knownIds) {
+
+/**
+ * 从 hexdoc 网页书 HTML 中提取图案条目。
+ * 合并键：有命名空间时为 `ns:id`，旧锚点只有短 id。
+ * @param {string} html 书页 index.html
+ * @param {KnownPatterns} known 本站收录的注册名 / 短 id（用于过滤分类锚点）
+ * @returns {Map<string, PatternEntry>}
+ */
+export function extractPatternEntries(html, known) {
+    const regs = known?.regs ?? new Set();
+    const ids = known?.ids ?? new Set();
     const out = new Map();
     // 匹配所有 patterns/ 锚点 div（class 可不含 entry：新版 hexdoc 图案 div 无 class，旧版为 class=""）
-    // 分类锚点（patterns/<分类>）与嵌套条目锚点由 knownIds / parsePatternId 过滤
     const anchorRe = /<div[^>]*id="(patterns\/[^"]+)"[^>]*>/g;
     const anchors = [];
     let m;
@@ -26,31 +33,50 @@ export function extractPatternEntries(html, knownIds) {
         const end = i + 1 < anchors.length ? anchors[i + 1].index : html.length;
         const slice = html.slice(index, end);
 
-        const pid = parsePatternId(anchor);
-        if (!pid || !knownIds.has(pid)) continue; // 只保留本站收录的图案
+        const parsed = parseAnchor(anchor);
+        if (!parsed || !isKnown(parsed, regs, ids)) continue;
 
         const title = extractTitle(slice);
         const text = extractText(slice);
-        if (!title && !text) continue;
-
-        const sig = slice.match(/data-string="([^"]*)"/)?.[1] ?? null;
-        const start = slice.match(/data-start="([^"]*)"/)?.[1] ?? null;
-        out.set(pid, { title, text, sig, start });
+        const entry = {
+            key: parsed.ns ? `${parsed.ns}:${parsed.id}` : parsed.id,
+            ns: parsed.ns,
+            id: parsed.id,
+            category: parsed.category,
+            title,
+            text,
+        };
+        const prev = out.get(entry.key);
+        if (prev && (prev.text?.length || 0) >= (text?.length || 0) && (prev.title || !title)) continue;
+        out.set(entry.key, entry);
     }
     return out;
 }
 
-/** 从锚点提取图案 id：patterns/<分类>@<ns>:<pid> → pid；patterns/<分类>/<pid> → pid */
-function parsePatternId(anchor) {
-    const at = anchor.indexOf('@');
+function isKnown(parsed, regs, ids) {
+    if (parsed.ns) return regs.has(`${parsed.ns}:${parsed.id}`);
+    return ids.has(parsed.id);
+}
+
+/** @returns {{ category: string, ns: string|null, id: string } | null} */
+function parseAnchor(anchor) {
+    let raw = anchor;
+    try { raw = decodeURIComponent(anchor); } catch { /* 保持原文 */ }
+    const at = raw.indexOf('@');
     if (at >= 0) {
-        const after = anchor.slice(at + 1); // ns:pid
+        const category = raw.slice('patterns/'.length, at);
+        const after = raw.slice(at + 1); // ns:pid
         const colon = after.indexOf(':');
-        return colon >= 0 ? after.slice(colon + 1) : null;
+        if (colon < 0) return null;
+        const ns = after.slice(0, colon);
+        const id = after.slice(colon + 1);
+        if (!ns || !id) return null;
+        return { category, ns, id };
     }
     // 旧格式：patterns/<分类>/<pid>
-    const parts = anchor.split('/');
-    return parts.length >= 3 ? parts.slice(2).join('/') : null;
+    const parts = raw.split('/');
+    if (parts.length < 3) return null;
+    return { category: parts[1], ns: null, id: parts.slice(2).join('/') };
 }
 
 function extractTitle(slice) {
