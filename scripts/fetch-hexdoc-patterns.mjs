@@ -10,22 +10,14 @@ import { fileURLToPath } from 'node:url';
 import {
     fetchPyPIJson,
     getHexBugDependencies,
-    getLatestWheel,
-    extractPatternsFromWheel,
+    fetchLatestPatternRelease,
+    EXTRA_PACKAGES,
     USER_AGENT,
 } from '../src/lib/hexdocData.js';
 import { extractPatternEntries } from '../src/lib/bookScrape.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = join(ROOT, 'public', 'pattern-data');
-
-// HexBug-data 未收录但已发布到 PyPI 的 hexdoc 包（用户自己的书）
-const EXTRA_PACKAGES = [
-    'hexdoc-miehex-revolution',
-    'hexdoc-abadoned-greatwork',
-    'hexdoc-almightly-staff',
-    'hexdoc-miehex',
-];
 
 // 自建书不在 <mod>.hexxy.media 上，用站点根路径，版本从 sitemap 解析。
 const CUSTOM_BOOK_ROOTS = {
@@ -168,12 +160,11 @@ if (booksOnly) {
     for (const dep of allDeps) {
         console.log(`  … ${dep}`);
         try {
-            const { url, version } = await getLatestWheel(dep);
-            const bytes = await fetchBuffer(url);
-            const { patterns, modid } = extractPatternsFromWheel(bytes, dep);
+            const { patterns, modid, version, skipped } = await fetchLatestPatternRelease(dep, fetchBuffer);
             packages.push({ pkg: dep, version, count: patterns.length, modid });
             allPatterns.push(...patterns);
-            console.log(`  ✓ ${dep} v${version}: ${patterns.length} patterns（modid=${modid}）`);
+            const skipNote = skipped?.length ? `（跳过无图案表的 ${skipped.join('、')}）` : '';
+            console.log(`  ✓ ${dep} v${version}: ${patterns.length} patterns（modid=${modid}）${skipNote}`);
             await sleep(200); // 礼貌限速
         } catch (e) {
             console.warn(`  ⚠ ${dep} 处理失败：${e.message}`);

@@ -6,9 +6,18 @@ import { parseJsonLoose } from './jsonLoose.js';
 export const PYPI_JSON_URL = (pkg) => `https://pypi.org/pypi/${pkg}/json`;
 export const USER_AGENT = 'hexcasting-cn-fetch/1.0';
 
+/** HexBug-data 未收录、但已发布到 PyPI 的 hexdoc 包 */
+export const EXTRA_PACKAGES = [
+    'hexdoc-miehex-revolution',
+    'hexdoc-abadoned-greatwork',
+    'hexdoc-almightly-staff',
+    'hexdoc-miehex',
+];
+
 export async function fetchPyPIJson(pkg) {
     const res = await fetch(PYPI_JSON_URL(pkg), {
         headers: { 'User-Agent': USER_AGENT },
+        cache: 'no-store',
         signal: AbortSignal.timeout(45_000),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${pkg}`);
@@ -24,13 +33,74 @@ export async function getHexBugDependencies() {
         .filter((n) => n && n.startsWith('hexdoc-'));
 }
 
-/** 取包的最新 wheel 下载信息 */
+/** 构建与页面刷新共用：HexBug-data 依赖 + 额外包，去重 */
+export async function getPatternPackages() {
+    const deps = await getHexBugDependencies();
+    return [...new Set([...deps, ...EXTRA_PACKAGES])];
+}
+
+/** 取包在 PyPI 上的最新版本 wheel（不走缓存） */
 export async function getLatestWheel(pkg) {
     const info = await fetchPyPIJson(pkg);
     const version = info.info?.version ?? 'unknown';
-    const wheel = (info.urls || []).find((f) => f.packagetype === 'bdist_wheel');
+    const files = (info.urls?.length ? info.urls : info.releases?.[version]) || [];
+    const wheels = files.filter((f) => f.packagetype === 'bdist_wheel' && !f.yanked);
+    wheels.sort((a, b) => {
+        const prefer = (f) => (String(f.filename || '').includes('py3-none-any') ? 1 : 0);
+        if (prefer(a) !== prefer(b)) return prefer(b) - prefer(a);
+        return String(b.upload_time_iso_8601 || '').localeCompare(String(a.upload_time_iso_8601 || ''));
+    });
+    const wheel = wheels[0];
     if (!wheel) throw new Error(`no wheel for ${pkg} ${version}`);
     return { url: wheel.url, version };
+}
+
+function pickWheelFile(files) {
+    const wheels = (files || []).filter((f) => f.packagetype === 'bdist_wheel' && !f.yanked);
+    wheels.sort((a, b) => {
+        const prefer = (f) => (String(f.filename || '').includes('py3-none-any') ? 1 : 0);
+        if (prefer(a) !== prefer(b)) return prefer(b) - prefer(a);
+        return String(b.upload_time_iso_8601 || '').localeCompare(String(a.upload_time_iso_8601 || ''));
+    });
+    return wheels[0] ?? null;
+}
+
+/** 各版本 wheel，按上传时间从新到旧 */
+export function listWheelReleases(info) {
+    const rows = [];
+    for (const [version, files] of Object.entries(info.releases || {})) {
+        const wheel = pickWheelFile(files);
+        if (!wheel?.url) continue;
+        rows.push({ version, url: wheel.url, uploaded: wheel.upload_time_iso_8601 || wheel.upload_time || '' });
+    }
+    rows.sort((a, b) => String(b.uploaded).localeCompare(String(a.uploaded)));
+    return rows;
+}
+
+/**
+ * 从最新发布的 wheel 提取图案。
+ * 若最新 wheel 没打进 patterns.hexdoc.json，则继续往更早的发布找，并在 skipped 里记下被跳过的版本。
+ * @param {string} pkg
+ * @param {(url: string) => Promise<ArrayBuffer|Uint8Array>} fetchBytes
+ */
+export async function fetchLatestPatternRelease(pkg, fetchBytes) {
+    const info = await fetchPyPIJson(pkg);
+    const releases = listWheelReleases(info);
+    if (!releases.length) throw new Error(`no wheel for ${pkg} ${info.info?.version ?? 'unknown'}`);
+    const skipped = [];
+    let lastError = null;
+    for (const rel of releases) {
+        const bytes = await fetchBytes(rel.url);
+        try {
+            const extracted = extractPatternsFromWheel(bytes, pkg);
+            return { ...extracted, version: rel.version, skipped };
+        } catch (e) {
+            lastError = e;
+            if (!String(e.message).includes('patterns.hexdoc.json')) throw e;
+            skipped.push(rel.version);
+        }
+    }
+    throw lastError ?? new Error(`${pkg}: 已发布版本都没有图案表`);
 }
 
 /**

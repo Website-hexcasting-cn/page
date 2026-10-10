@@ -219,9 +219,8 @@ import BaseLayout from '../layouts/baseLayout.astro';
 <script>
     import { patternToSvg } from '../lib/iotaRender';
     import {
-        getHexBugDependencies,
-        getLatestWheel,
-        extractPatternsFromWheel,
+        getPatternPackages,
+        fetchLatestPatternRelease,
     } from '../lib/hexdocData';
 
     // ── 常量 ─────────────────────────────────────────────
@@ -378,24 +377,35 @@ import BaseLayout from '../layouts/baseLayout.astro';
     async function refreshFromPyPI() {
         refreshBtn.disabled = true;
         try {
-            const deps = await getHexBugDependencies();
+            const deps = await getPatternPackages();
+            const prevByPkg = new Map<string, Pattern[]>();
+            for (const p of patterns) {
+                const list = prevByPkg.get(p.pkg);
+                if (list) list.push(p);
+                else prevByPkg.set(p.pkg, [p]);
+            }
             const all: Pattern[] = [];
             const warnings: string[] = [];
             let done = 0;
             const total = deps.length;
-            statusText.textContent = `从 PyPI 拉取：0/${total}`;
+            statusText.textContent = `从 PyPI 拉取最新版：0/${total}`;
             refreshProgress.hidden = false;
             for (const dep of deps) {
                 try {
-                    const { url } = await getLatestWheel(dep);
-                    const bytes = await (await fetch(url)).arrayBuffer();
-                    const { patterns: pats } = extractPatternsFromWheel(bytes, dep);
+                    const { patterns: pats, version, skipped } = await fetchLatestPatternRelease(dep, async (url) => {
+                        const res = await fetch(url, { cache: 'no-store' });
+                        if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`);
+                        return res.arrayBuffer();
+                    });
                     all.push(...pats);
+                    if (skipped?.length) warnings.push(`${dep}: 最新版 ${skipped[0]} 的 wheel 没有图案表，改用 ${version}`);
                 } catch (e) {
+                    const prev = prevByPkg.get(dep);
+                    if (prev?.length) all.push(...prev);
                     warnings.push(`${dep}: ${(e as Error).message}`);
                 }
                 done++;
-                statusText.textContent = `从 PyPI 拉取：${done}/${total}`;
+                statusText.textContent = `从 PyPI 拉取最新版：${done}/${total}`;
                 await new Promise((r) => setTimeout(r, 50));
             }
             all.sort((a, b) => a.pkg.localeCompare(b.pkg) || a.id.localeCompare(b.id));
